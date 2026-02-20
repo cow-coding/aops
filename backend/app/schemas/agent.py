@@ -1,0 +1,24 @@
+import uuid
+from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict
+
+
+class AgentCreate(BaseModel):
+    name: str
+    description: str | None = None
+
+
+class AgentUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+
+
+class AgentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+    description: str | None
+    created_at: datetime
+    updated_at: datetime
