@@ -1,19 +1,18 @@
-import { useState } from 'react'
-import './App.css'
+import { Routes, Route, Navigate } from 'react-router-dom';
+import AppShell from './components/AppShell';
+import AgentListPage from './pages/AgentListPage';
+import AgentCreatePage from './pages/AgentCreatePage';
+import AgentDetailPage from './pages/AgentDetailPage';
 
-function App() {
-  const [count, setCount] = useState(0)
-
+export default function App() {
   return (
-    <div className="app">
-      <h1>AgentOps</h1>
-      <div className="card">
-        <button onClick={() => setCount((c) => c + 1)}>
-          count is {count}
-        </button>
-      </div>
-    </div>
-  )
+    <Routes>
+      <Route element={<AppShell />}>
+        <Route path="/" element={<Navigate to="/agents" replace />} />
+        <Route path="/agents" element={<AgentListPage />} />
+        <Route path="/agents/new" element={<AgentCreatePage />} />
+        <Route path="/agents/:id" element={<AgentDetailPage />} />
+      </Route>
+    </Routes>
+  );
 }
-
-export default App
