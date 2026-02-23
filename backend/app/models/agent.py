@@ -29,3 +29,6 @@ class Agent(Base):
     chains: Mapped[list["Chain"]] = relationship(  # noqa: F821
         "Chain", back_populates="agent", cascade="all, delete-orphan"
     )
+    api_keys: Mapped[list["ApiKey"]] = relationship(  # noqa: F821
+        "ApiKey", back_populates="agent", cascade="all, delete-orphan"
+    )
