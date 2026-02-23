@@ -367,10 +367,10 @@ function VersionRow({
                 Persona changed:
               </Typography>
               <Typography sx={{ fontSize: '0.8125rem', color: colors.danger.fg, textDecoration: 'line-through', wordBreak: 'break-word' }}>
-                - {prevVersion.persona}
+                - {prevVersion.persona ?? '(none)'}
               </Typography>
               <Typography sx={{ fontSize: '0.8125rem', color: colors.success.fg, wordBreak: 'break-word' }}>
-                + {version.persona}
+                + {version.persona ?? '(none)'}
               </Typography>
             </Box>
           )}
