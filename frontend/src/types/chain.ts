@@ -3,7 +3,7 @@ export interface Chain {
   agent_id: string;
   name: string;
   description: string | null;
-  persona: string;
+  persona: string | null;
   content: string;
   created_at: string;
   updated_at: string;
@@ -12,7 +12,7 @@ export interface Chain {
 export interface ChainCreateRequest {
   name: string;
   description?: string;
-  persona: string;
+  persona?: string;
   content: string;
   message?: string;
 }
@@ -20,7 +20,7 @@ export interface ChainCreateRequest {
 export interface ChainUpdateRequest {
   name?: string;
   description?: string;
-  persona?: string;
+  persona?: string | null;
   content?: string;
   message?: string;
 }
@@ -28,7 +28,7 @@ export interface ChainUpdateRequest {
 export interface ChainVersion {
   id: string;
   chain_id: string;
-  persona: string;
+  persona: string | null;
   content: string;
   message: string;
   version_number: number;

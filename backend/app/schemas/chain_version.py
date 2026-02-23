@@ -9,7 +9,7 @@ class ChainVersionResponse(BaseModel):
 
     id: uuid.UUID
     chain_id: uuid.UUID
-    persona: str
+    persona: str | None
     content: str
     message: str
     version_number: int

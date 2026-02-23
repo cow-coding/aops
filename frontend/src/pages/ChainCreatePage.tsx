@@ -48,6 +48,7 @@ export default function ChainCreatePage() {
     try {
       const payload = { ...form };
       if (!payload.message?.trim()) delete payload.message;
+      if (!payload.persona?.trim()) delete payload.persona;
       const created = await chainApi.create(agentId, payload);
       navigate(`/agents/${agentId}/chains/${created.id}`);
     } catch (err) {
@@ -58,7 +59,7 @@ export default function ChainCreatePage() {
   };
 
   const isValid =
-    form.name.trim() !== '' && form.persona.trim() !== '' && form.content.trim() !== '';
+    form.name.trim() !== '' && form.content.trim() !== '';
 
   return (
     <Box sx={{ maxWidth: 640 }}>
@@ -135,15 +136,14 @@ export default function ChainCreatePage() {
             variant="body1"
             sx={{ fontWeight: 600, display: 'block', mb: 1 }}
           >
-            Persona <span style={{ color: colors.danger.fg }}>*</span>
+            Persona <Typography component="span" variant="caption" sx={{ color: colors.fg.muted }}>(optional)</Typography>
           </Typography>
           <TextField
-            required
             fullWidth
             placeholder="e.g. Senior Engineer, Product Manager, QA Tester..."
             value={form.persona}
             onChange={(e) => handleChange('persona', e.target.value)}
-            helperText="The role this chain's prompt will act as."
+            helperText="Defines the role mindset for this chain. Leave blank to omit."
           />
         </Box>
 

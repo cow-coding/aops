@@ -40,26 +40,6 @@ function formatDate(dateStr: string): string {
   });
 }
 
-function PersonaBadge({ persona }: { persona: string }) {
-  return (
-    <Box
-      component="span"
-      sx={{
-        display: 'inline-block',
-        fontSize: '0.75rem',
-        fontWeight: 500,
-        borderRadius: '20px',
-        padding: '2px 8px',
-        color: colors.accent.fg,
-        background: 'rgba(88,166,255,0.1)',
-        border: '1px solid rgba(88,166,255,0.4)',
-        flexShrink: 0,
-      }}
-    >
-      {persona}
-    </Box>
-  );
-}
 
 const markdownSx = {
   color: colors.fg.default,
@@ -285,8 +265,6 @@ function VersionRow({
           {formatDate(version.created_at)}
         </Typography>
 
-        <PersonaBadge persona={version.persona} />
-
         {isLatest && (
           <Box
             component="span"
@@ -330,6 +308,31 @@ function VersionRow({
 
       {action === 'code' && (
         <Box sx={{ ml: 2, mb: 2, mt: 0.5 }}>
+          {version.persona && (
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'baseline',
+                gap: 1.5,
+                mb: 1.5,
+                pb: 1.5,
+                borderBottom: `1px solid ${colors.border.default}`,
+              }}
+            >
+              <Typography
+                component="span"
+                sx={{ color: colors.fg.muted, fontSize: '0.75rem', whiteSpace: 'nowrap' }}
+              >
+                persona
+              </Typography>
+              <Typography
+                component="span"
+                sx={{ color: colors.fg.default, fontSize: '0.875rem' }}
+              >
+                {version.persona}
+              </Typography>
+            </Box>
+          )}
           <Box
             sx={{
               background: colors.canvas.inset,
@@ -350,8 +353,8 @@ function VersionRow({
             <Box
               sx={{
                 display: 'flex',
-                alignItems: 'center',
-                gap: 1,
+                flexDirection: 'column',
+                gap: 0.5,
                 fontSize: '0.8125rem',
                 color: colors.fg.muted,
                 background: colors.canvas.subtle,
@@ -360,45 +363,23 @@ function VersionRow({
                 padding: '8px 12px',
               }}
             >
-              <Typography sx={{ fontSize: '0.8125rem', color: colors.fg.muted, fontWeight: 500 }}>
+              <Typography sx={{ fontSize: '0.8125rem', color: colors.fg.muted, fontWeight: 500, mb: 0.5 }}>
                 Persona changed:
               </Typography>
-              <Box
-                component="span"
-                sx={{
-                  fontSize: '0.75rem',
-                  padding: '1px 8px',
-                  borderRadius: '20px',
-                  background: 'rgba(248,81,73,0.15)',
-                  color: colors.danger.fg,
-                  border: `1px solid rgba(248,81,73,0.4)`,
-                  textDecoration: 'line-through',
-                }}
-              >
-                {prevVersion.persona}
-              </Box>
-              <Typography sx={{ fontSize: '0.8125rem', color: colors.fg.subtle }}>→</Typography>
-              <Box
-                component="span"
-                sx={{
-                  fontSize: '0.75rem',
-                  padding: '1px 8px',
-                  borderRadius: '20px',
-                  background: 'rgba(63,185,80,0.15)',
-                  color: colors.success.fg,
-                  border: `1px solid rgba(63,185,80,0.4)`,
-                }}
-              >
-                {version.persona}
-              </Box>
+              <Typography sx={{ fontSize: '0.8125rem', color: colors.danger.fg, textDecoration: 'line-through', wordBreak: 'break-word' }}>
+                - {prevVersion.persona}
+              </Typography>
+              <Typography sx={{ fontSize: '0.8125rem', color: colors.success.fg, wordBreak: 'break-word' }}>
+                + {version.persona}
+              </Typography>
             </Box>
           )}
-          {!prevVersion && (
+          {!prevVersion && version.persona && (
             <Box
               sx={{
                 display: 'flex',
-                alignItems: 'center',
-                gap: 1,
+                flexDirection: 'column',
+                gap: 0.5,
                 fontSize: '0.8125rem',
                 color: colors.fg.muted,
                 background: colors.canvas.subtle,
@@ -407,10 +388,12 @@ function VersionRow({
                 padding: '8px 12px',
               }}
             >
-              <Typography sx={{ fontSize: '0.8125rem', color: colors.fg.muted, fontWeight: 500 }}>
+              <Typography sx={{ fontSize: '0.8125rem', color: colors.fg.muted, fontWeight: 500, mb: 0.5 }}>
                 Persona:
               </Typography>
-              <PersonaBadge persona={version.persona} />
+              <Typography sx={{ fontSize: '0.8125rem', color: colors.success.fg, wordBreak: 'break-word' }}>
+                {version.persona}
+              </Typography>
             </Box>
           )}
           <DiffViewer
@@ -496,7 +479,11 @@ export default function ChainDetailPage() {
       : commitTitle.trim();
 
     try {
-      const updated = await chainApi.update(agentId, chainId, { ...form, message });
+      const cleanedForm = { ...form };
+      if (cleanedForm.persona !== undefined && !cleanedForm.persona.trim()) {
+        cleanedForm.persona = null;
+      }
+      const updated = await chainApi.update(agentId, chainId, { ...cleanedForm, message });
       setChain(updated);
       setEditing(false);
       setForm({});
@@ -523,7 +510,7 @@ export default function ChainDetailPage() {
     }
   };
 
-  const isFormValid = (form.persona ?? '').trim() !== '' && (form.content ?? '').trim() !== '';
+  const isFormValid = (form.content ?? '').trim() !== '';
 
   if (loading) {
     return (
@@ -563,7 +550,6 @@ export default function ChainDetailPage() {
         <Typography variant="h2" sx={{ flex: 1 }}>
           {chain.name}
         </Typography>
-        <PersonaBadge persona={chain.persona} />
         <Button
           size="small"
           variant="text"
@@ -630,14 +616,14 @@ export default function ChainDetailPage() {
                   variant="body1"
                   sx={{ fontWeight: 600, display: 'block', mb: 1 }}
                 >
-                  Persona <span style={{ color: colors.danger.fg }}>*</span>
+                  Persona <Typography component="span" variant="caption" sx={{ color: colors.fg.muted }}>(optional)</Typography>
                 </Typography>
                 <TextField
                   fullWidth
                   placeholder="e.g. Senior Engineer, Product Manager, QA Tester..."
-                  value={form.persona ?? chain.persona}
+                  value={form.persona ?? chain.persona ?? ''}
                   onChange={(e) => setForm((prev) => ({ ...prev, persona: e.target.value }))}
-                  helperText="This chain's prompt will act as this persona."
+                  helperText="Defines the role mindset for this chain. Leave blank to omit."
                 />
               </Box>
 
@@ -690,17 +676,44 @@ export default function ChainDetailPage() {
               </Box>
             </Box>
           ) : (
-            <Box
-              sx={{
-                background: colors.canvas.inset,
-                border: `1px solid ${colors.border.default}`,
-                borderRadius: '6px',
-                padding: '16px',
-                minHeight: 120,
-              }}
-            >
-              <MarkdownRenderer content={chain.content} />
-            </Box>
+            <>
+              {chain.persona && (
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'baseline',
+                    gap: 1.5,
+                    mb: 1.5,
+                    pb: 1.5,
+                    borderBottom: `1px solid ${colors.border.default}`,
+                  }}
+                >
+                  <Typography
+                    component="span"
+                    sx={{ color: colors.fg.muted, fontSize: '0.75rem', whiteSpace: 'nowrap' }}
+                  >
+                    persona
+                  </Typography>
+                  <Typography
+                    component="span"
+                    sx={{ color: colors.fg.default, fontSize: '0.875rem' }}
+                  >
+                    {chain.persona}
+                  </Typography>
+                </Box>
+              )}
+              <Box
+                sx={{
+                  background: colors.canvas.inset,
+                  border: `1px solid ${colors.border.default}`,
+                  borderRadius: '6px',
+                  padding: '16px',
+                  minHeight: 120,
+                }}
+              >
+                <MarkdownRenderer content={chain.content} />
+              </Box>
+            </>
           )}
         </Box>
       )}

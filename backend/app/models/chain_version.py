@@ -20,7 +20,7 @@ class ChainVersion(Base):
         nullable=False,
         index=True,
     )
-    persona: Mapped[str] = mapped_column(String(255), nullable=False)
+    persona: Mapped[str | None] = mapped_column(String(255), nullable=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     message: Mapped[str] = mapped_column(String(500), nullable=False, default="Initial version")
     version_number: Mapped[int] = mapped_column(Integer, nullable=False)

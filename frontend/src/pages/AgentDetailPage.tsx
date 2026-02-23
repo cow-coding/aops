@@ -460,6 +460,7 @@ export default function AgentDetailPage() {
                         color: colors.accent.fg,
                         fontWeight: 600,
                         fontSize: '1rem',
+                        flex: 1,
                         minWidth: 0,
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
@@ -468,21 +469,6 @@ export default function AgentDetailPage() {
                     >
                       {chain.name}
                     </Typography>
-                    <Box
-                      component="span"
-                      sx={{
-                        fontSize: '0.7rem',
-                        fontWeight: 500,
-                        borderRadius: '20px',
-                        padding: '1px 7px',
-                        color: colors.accent.fg,
-                        background: 'rgba(88,166,255,0.1)',
-                        border: '1px solid rgba(88,166,255,0.4)',
-                        flexShrink: 0,
-                      }}
-                    >
-                      {chain.persona}
-                    </Box>
                     <Typography
                       sx={{
                         color: colors.fg.subtle,

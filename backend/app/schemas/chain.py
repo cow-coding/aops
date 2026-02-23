@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class ChainCreate(BaseModel):
     name: str
     description: str | None = None
-    persona: str = Field(min_length=1)
+    persona: str | None = None
     content: str = Field(min_length=1)
     message: str = Field(default="Initial version", max_length=500)
 
@@ -27,7 +27,7 @@ class ChainResponse(BaseModel):
     agent_id: uuid.UUID
     name: str
     description: str | None
-    persona: str
+    persona: str | None
     content: str
     created_at: datetime
     updated_at: datetime
