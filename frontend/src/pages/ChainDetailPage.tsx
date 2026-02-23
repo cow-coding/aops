@@ -22,6 +22,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
+import RestoreOutlinedIcon from '@mui/icons-material/RestoreOutlined';
 import CodeOutlinedIcon from '@mui/icons-material/CodeOutlined';
 import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import type { Agent } from '../types/agent';
@@ -197,10 +198,12 @@ function VersionRow({
   version,
   prevVersion,
   isLatest,
+  onRollback,
 }: {
   version: ChainVersion;
   prevVersion: ChainVersion | null;
   isLatest: boolean;
+  onRollback: (version: ChainVersion) => void;
 }) {
   const [action, setAction] = useState<VersionAction>(null);
 
@@ -303,6 +306,24 @@ function VersionRow({
           >
             View Diff
           </Button>
+          {!isLatest && (
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<RestoreOutlinedIcon sx={{ fontSize: 14 }} />}
+              onClick={() => onRollback(version)}
+              sx={{
+                fontSize: '0.75rem',
+                minHeight: 24,
+                padding: '2px 10px',
+                color: colors.accent.fg,
+                borderColor: colors.accent.fg,
+                '&:hover': { borderColor: colors.accent.fg, backgroundColor: 'rgba(88,166,255,0.08)' },
+              }}
+            >
+              Rollback
+            </Button>
+          )}
         </Box>
       </Box>
 
@@ -429,6 +450,10 @@ export default function ChainDetailPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  const [rollbackVersion, setRollbackVersion] = useState<ChainVersion | null>(null);
+  const [rollingBack, setRollingBack] = useState(false);
+  const [rollbackError, setRollbackError] = useState<string | null>(null);
+
   const loadData = () => {
     if (!agentId || !chainId) return;
     return Promise.all([
@@ -507,6 +532,23 @@ export default function ChainDetailPage() {
       setDeleteDialogOpen(false);
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleRollback = async () => {
+    if (!agentId || !chainId || !rollbackVersion) return;
+    setRollingBack(true);
+    setRollbackError(null);
+    try {
+      const updated = await chainApi.rollback(agentId, chainId, rollbackVersion.id);
+      setChain(updated);
+      const vers = await chainApi.getVersions(agentId, chainId);
+      setVersions(vers.sort((a, b) => b.version_number - a.version_number));
+      setRollbackVersion(null);
+    } catch (err) {
+      setRollbackError(err instanceof Error ? err.message : 'Failed to rollback');
+    } finally {
+      setRollingBack(false);
     }
   };
 
@@ -735,7 +777,7 @@ export default function ChainDetailPage() {
                 const isLatest = idx === 0;
                 return (
                   <Box key={ver.id}>
-                    <VersionRow version={ver} prevVersion={prevVer} isLatest={isLatest} />
+                    <VersionRow version={ver} prevVersion={prevVer} isLatest={isLatest} onRollback={setRollbackVersion} />
                     <Divider />
                   </Box>
                 );
@@ -800,6 +842,41 @@ export default function ChainDetailPage() {
             disabled={!commitTitle.trim()}
           >
             Commit changes
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Rollback confirmation dialog ── */}
+      <Dialog
+        open={rollbackVersion !== null}
+        onClose={() => { setRollbackVersion(null); setRollbackError(null); }}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Revert to v{rollbackVersion?.version_number}?</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Typography variant="body1">
+            This will create a new version with the content of{' '}
+            <strong style={{ color: colors.fg.default }}>v{rollbackVersion?.version_number}</strong>{' '}
+            and update the chain. Existing history is preserved.
+          </Typography>
+          {rollbackError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {rollbackError}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button variant="outlined" onClick={() => { setRollbackVersion(null); setRollbackError(null); }} disabled={rollingBack}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleRollback}
+            disabled={rollingBack}
+            startIcon={rollingBack ? <CircularProgress size={14} sx={{ color: 'white' }} /> : <RestoreOutlinedIcon sx={{ fontSize: 16 }} />}
+          >
+            {rollingBack ? 'Reverting...' : 'Revert'}
           </Button>
         </DialogActions>
       </Dialog>

@@ -28,10 +28,10 @@ async function request<T>(
 export const api = {
   get: <T>(endpoint: string) => request<T>(endpoint),
 
-  post: <T>(endpoint: string, body: unknown) =>
+  post: <T>(endpoint: string, body?: unknown) =>
     request<T>(endpoint, {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: body !== undefined ? JSON.stringify(body) : undefined,
     }),
 
   put: <T>(endpoint: string, body: unknown) =>

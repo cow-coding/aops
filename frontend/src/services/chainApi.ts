@@ -21,4 +21,7 @@ export const chainApi = {
 
   getVersion: (agentId: string, chainId: string, versionId: string) =>
     api.get<ChainVersion>(`/agents/${agentId}/chains/${chainId}/versions/${versionId}`),
+
+  rollback: (agentId: string, chainId: string, versionId: string) =>
+    api.post<Chain>(`/agents/${agentId}/chains/${chainId}/versions/${versionId}/rollback`),
 };

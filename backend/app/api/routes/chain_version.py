@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.schemas.chain import ChainResponse
 from app.schemas.chain_version import ChainVersionResponse
 from app.services import agent as agent_service
 from app.services import chain as chain_service
@@ -47,3 +48,30 @@ async def get_version(
     if not version or version.chain_id != chain_id:
         raise HTTPException(status_code=404, detail="Version not found")
     return version
+
+
+@router.post("/{version_id}/rollback", response_model=ChainResponse)
+async def rollback_version(
+    agent_id: uuid.UUID,
+    chain_id: uuid.UUID,
+    version_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    agent = await agent_service.get_agent(db, agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    chain = await chain_service.get_chain(db, chain_id)
+    if not chain or chain.agent_id != agent_id:
+        raise HTTPException(status_code=404, detail="Chain not found")
+    version = await chain_version_service.get_version(db, version_id)
+    if not version or version.chain_id != chain_id:
+        raise HTTPException(status_code=404, detail="Version not found")
+
+    versions = await chain_version_service.get_versions(db, chain_id)
+    latest = versions[0] if versions else None
+    if latest and version.id == latest.id:
+        raise HTTPException(status_code=409, detail="Already the latest version")
+
+    return await chain_service.rollback_chain(db, chain, version)
+
+

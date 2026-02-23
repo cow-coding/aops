@@ -8,6 +8,16 @@ from app.models.chain_version import ChainVersion
 from app.schemas.chain import ChainCreate, ChainUpdate
 
 
+async def _next_version_number(db: AsyncSession, chain_id: uuid.UUID) -> int:
+    result = await db.execute(
+        select(ChainVersion)
+        .where(ChainVersion.chain_id == chain_id)
+        .order_by(ChainVersion.version_number.desc())
+    )
+    latest = result.scalars().first()
+    return (latest.version_number + 1) if latest else 1
+
+
 async def get_chains(db: AsyncSession, agent_id: uuid.UUID) -> list[Chain]:
     result = await db.execute(
         select(Chain).where(Chain.agent_id == agent_id).order_by(Chain.created_at.desc())
@@ -51,13 +61,7 @@ async def update_chain(db: AsyncSession, chain: Chain, data: ChainUpdate) -> Cha
         setattr(chain, key, value)
 
     if persona_changed or content_changed:
-        result = await db.execute(
-            select(ChainVersion)
-            .where(ChainVersion.chain_id == chain.id)
-            .order_by(ChainVersion.version_number.desc())
-        )
-        latest = result.scalars().first()
-        next_version = (latest.version_number + 1) if latest else 1
+        next_version = await _next_version_number(db, chain.id)
 
         version = ChainVersion(
             chain_id=chain.id,
@@ -68,6 +72,25 @@ async def update_chain(db: AsyncSession, chain: Chain, data: ChainUpdate) -> Cha
         )
         db.add(version)
 
+    await db.commit()
+    await db.refresh(chain)
+    return chain
+
+
+async def rollback_chain(db: AsyncSession, chain: Chain, target_version: ChainVersion) -> Chain:
+    chain.persona = target_version.persona
+    chain.content = target_version.content
+
+    next_version = await _next_version_number(db, chain.id)
+
+    new_version = ChainVersion(
+        chain_id=chain.id,
+        persona=target_version.persona,
+        content=target_version.content,
+        message=f"Revert to v{target_version.version_number}",
+        version_number=next_version,
+    )
+    db.add(new_version)
     await db.commit()
     await db.refresh(chain)
     return chain
