@@ -13,9 +13,11 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
+  IconButton,
   Tab,
   Tabs,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -24,7 +26,7 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import RestoreOutlinedIcon from '@mui/icons-material/RestoreOutlined';
 import CodeOutlinedIcon from '@mui/icons-material/CodeOutlined';
-import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
+import DifferenceOutlinedIcon from '@mui/icons-material/DifferenceOutlined';
 import type { Agent } from '../types/agent';
 import type { Chain, ChainUpdateRequest, ChainVersion } from '../types/chain';
 import { agentApi } from '../services/agentApi';
@@ -295,34 +297,30 @@ function VersionRow({
             onClick={() => toggleAction('code')}
             sx={{ fontSize: '0.75rem', minHeight: 24, padding: '2px 10px' }}
           >
-            View Code
+            View Prompt
           </Button>
           <Button
             size="small"
             variant={action === 'diff' ? 'contained' : 'outlined'}
-            startIcon={<HistoryOutlinedIcon sx={{ fontSize: 14 }} />}
+            startIcon={<DifferenceOutlinedIcon sx={{ fontSize: 14 }} />}
             onClick={() => toggleAction('diff')}
             sx={{ fontSize: '0.75rem', minHeight: 24, padding: '2px 10px' }}
           >
             View Diff
           </Button>
           {!isLatest && (
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<RestoreOutlinedIcon sx={{ fontSize: 14 }} />}
-              onClick={() => onRollback(version)}
-              sx={{
-                fontSize: '0.75rem',
-                minHeight: 24,
-                padding: '2px 10px',
-                color: colors.accent.fg,
-                borderColor: colors.accent.fg,
-                '&:hover': { borderColor: colors.accent.fg, backgroundColor: 'rgba(88,166,255,0.08)' },
-              }}
-            >
-              Rollback
-            </Button>
+            <Tooltip title="Rollback" placement="top">
+              <IconButton
+                size="small"
+                onClick={() => onRollback(version)}
+                sx={{
+                  color: colors.accent.fg,
+                  '&:hover': { backgroundColor: 'rgba(88,166,255,0.08)' },
+                }}
+              >
+                <RestoreOutlinedIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+            </Tooltip>
           )}
         </Box>
       </Box>
@@ -370,6 +368,11 @@ function VersionRow({
 
       {action === 'diff' && (
         <Box sx={{ ml: 2, mb: 2, mt: 0.5, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          <Typography sx={{ fontSize: '0.75rem', color: colors.fg.muted, fontFamily: monoFontFamily }}>
+            {prevVersion
+              ? `v${prevVersion.version_number} → v${version.version_number}`
+              : `v${version.version_number} (initial version)`}
+          </Typography>
           {prevVersion && prevVersion.persona !== version.persona && (
             <Box
               sx={{
@@ -624,7 +627,7 @@ export default function ChainDetailPage() {
         }}
       >
         <Tabs value={activeTab} onChange={(_, v) => { setActiveTab(v); setEditing(false); setForm({}); setSaveError(null); }}>
-          <Tab label="Code" />
+          <Tab label="Prompt" />
           <Tab label="History" />
         </Tabs>
         {activeTab === 0 && !editing && (
@@ -647,7 +650,7 @@ export default function ChainDetailPage() {
         </Alert>
       )}
 
-      {/* ── Code tab ── */}
+      {/* ── Prompt tab ── */}
       {activeTab === 0 && (
         <Box>
           {editing ? (
