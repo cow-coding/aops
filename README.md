@@ -1,87 +1,122 @@
-# AgentOps
+# AOps
 
-## 프로젝트 구조
+**AOps** is an open-source AgentOps platform for managing, versioning, and operating AI agents and their prompts.
+
+Starting as a "GitHub for Prompts" — a central hub for prompt version control — AOps is designed to grow into a full-featured AgentOps platform covering monitoring, tracing, cost tracking, and evaluation.
+
+---
+
+## Features
+
+### Prompt Management
+- Organize prompts by **Agent** and **Chain** units
+- Each Chain has a **persona** (role) and **content** (prompt body, Markdown supported)
+- Full **version history** per Chain — every edit creates a new version automatically
+
+### Version Control
+- Git-style **commit messages** on every prompt change
+- **Diff viewer** to compare versions side by side
+- Immutable version history — past versions are never modified
+
+### API Key Management
+- Issue and revoke API keys per agent
+- Keys are shown **only once** at creation (raw key is never stored)
+- Server URL is embedded in the key — no extra configuration needed in the client
+
+---
+
+## Roadmap
+
+| Category | Planned Features |
+|----------|-----------------|
+| **Prompt Management** | Prompt rollback, branching, tagging |
+| **Monitoring** | Agent execution logs, request/response tracking |
+| **Tracing** | LLM call traces, chain-level observability |
+| **Cost Tracking** | Token usage and cost per agent/chain |
+| **Evaluation** | Prompt evaluation pipelines, A/B testing |
+| **Collaboration** | Team access control, comments on versions |
+
+---
+
+## Project Structure
 
 ```
-AgentOps/
+AOps/
 ├── frontend/          # React 18 + TypeScript + Vite
 └── backend/           # FastAPI + Pydantic v2
 ```
 
-## 요구 사항
+## Requirements
 
-| 구분 | 버전 |
-|------|------|
+| | Version |
+|--|---------|
 | Node.js | >= 18 |
 | Python | >= 3.12 |
 
-## Frontend
+---
 
-Vite + React 18 + TypeScript 기반 프로젝트입니다.
+## Getting Started
 
-### 의존성 설치
-
-```bash
-cd frontend
-npm install
-```
-
-### 개발 서버 실행
-
-```bash
-npm run dev
-```
-
-`http://localhost:3000` 에서 접속할 수 있습니다.
-개발 모드에서 `/api` 경로는 백엔드(`http://localhost:8000`)로 프록시됩니다.
-
-### 빌드
-
-```bash
-npm run build
-```
-
-### 린트
-
-```bash
-npm run lint
-```
-
-## Backend
-
-FastAPI + Pydantic v2 기반 프로젝트입니다.
-
-### 의존성 설치
+### Backend
 
 ```bash
 cd backend
 pip install -r requirements.txt
 ```
 
-### 개발 서버 실행
-
 ```bash
 uvicorn app.main:app --reload
 ```
 
-`http://localhost:8000` 에서 접속할 수 있습니다.
+Available at `http://localhost:8000`.
 
-### 주요 엔드포인트
+### Frontend
 
-| 경로 | 설명 |
-|------|------|
-| `GET /health` | 헬스 체크 |
-| `GET /api/v1/` | API 루트 |
-| `GET /api/v1/openapi.json` | OpenAPI 스펙 |
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Available at `http://localhost:3000`.
+In development mode, `/api` requests are proxied to the backend.
+
+### Docker (recommended)
+
+```bash
+docker-compose up
+```
+
+---
+
+## API Reference
+
+| Path | Description |
+|------|-------------|
+| `GET /health` | Health check |
+| `GET /api/v1/` | API root |
 | `GET /docs` | Swagger UI |
+| `GET /api/v1/openapi.json` | OpenAPI spec |
 
-### 환경 변수
+---
 
-프로젝트 루트에 `.env` 파일을 생성하여 설정을 오버라이드할 수 있습니다.
+## Environment Variables
 
-| 변수 | 기본값 | 설명 |
-|------|--------|------|
-| `PROJECT_NAME` | AgentOps | 프로젝트 이름 |
-| `VERSION` | 0.1.0 | API 버전 |
-| `API_V1_PREFIX` | /api/v1 | API 경로 접두사 |
-| `CORS_ORIGINS` | ["http://localhost:3000"] | 허용 오리진 목록 |
+Create a `.env` file in the project root to override defaults.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PROJECT_NAME` | AOps | Project name |
+| `VERSION` | 0.1.0 | API version |
+| `API_V1_PREFIX` | /api/v1 | API path prefix |
+| `CORS_ORIGINS` | ["http://localhost:3000"] | Allowed origins |
+
+---
+
+## Contributing
+
+AOps is an open-source project. Contributions are welcome — feel free to open issues or pull requests.
+
+## License
+
+[MIT](LICENSE)
