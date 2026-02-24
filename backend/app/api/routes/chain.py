@@ -4,7 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.auth import get_chain_reader_auth, get_current_user
 from app.core.database import get_db
+from app.models.user import User
 from app.schemas.chain import ChainCreate, ChainResponse, ChainUpdate
 from app.services import agent as agent_service
 from app.services import chain as chain_service
@@ -12,21 +14,57 @@ from app.services import chain as chain_service
 router = APIRouter(prefix="/agents/{agent_id}/chains", tags=["chains"])
 
 
-@router.get("/", response_model=list[ChainResponse])
-async def list_chains(agent_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def _get_readable_agent(
+    agent_id: uuid.UUID,
+    auth: User | uuid.UUID,
+    db: AsyncSession,
+):
+    """Access check for read operations — accepts JWT user or API key."""
     agent = await agent_service.get_agent(db, agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
+    if isinstance(auth, uuid.UUID):
+        # API key auth: the key must belong to this exact agent
+        if auth != agent_id:
+            raise HTTPException(status_code=403, detail="Access denied.")
+    else:
+        if not await agent_service.can_access_agent(db, agent, auth.id):
+            raise HTTPException(status_code=403, detail="Access denied.")
+    return agent
+
+
+async def _get_owned_agent(
+    agent_id: uuid.UUID,
+    current_user: User,
+    db: AsyncSession,
+):
+    """Access check for write operations — JWT user must be owner."""
+    agent = await agent_service.get_agent(db, agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    if agent.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the owner can modify chains.")
+    return agent
+
+
+@router.get("/", response_model=list[ChainResponse])
+async def list_chains(
+    agent_id: uuid.UUID,
+    auth: User | uuid.UUID = Depends(get_chain_reader_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_readable_agent(agent_id, auth, db)
     return await chain_service.get_chains(db, agent_id)
 
 
 @router.post("/", response_model=ChainResponse, status_code=201)
 async def create_chain(
-    agent_id: uuid.UUID, data: ChainCreate, db: AsyncSession = Depends(get_db)
+    agent_id: uuid.UUID,
+    data: ChainCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    agent = await agent_service.get_agent(db, agent_id)
-    if not agent:
-        raise HTTPException(status_code=404, detail="Agent not found")
+    await _get_owned_agent(agent_id, current_user, db)
     try:
         return await chain_service.create_chain(db, agent_id, data)
     except IntegrityError:
@@ -35,10 +73,13 @@ async def create_chain(
 
 
 @router.get("/{chain_id}", response_model=ChainResponse)
-async def get_chain(agent_id: uuid.UUID, chain_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    agent = await agent_service.get_agent(db, agent_id)
-    if not agent:
-        raise HTTPException(status_code=404, detail="Agent not found")
+async def get_chain(
+    agent_id: uuid.UUID,
+    chain_id: uuid.UUID,
+    auth: User | uuid.UUID = Depends(get_chain_reader_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_readable_agent(agent_id, auth, db)
     chain = await chain_service.get_chain(db, chain_id)
     if not chain or chain.agent_id != agent_id:
         raise HTTPException(status_code=404, detail="Chain not found")
@@ -50,11 +91,10 @@ async def update_chain(
     agent_id: uuid.UUID,
     chain_id: uuid.UUID,
     data: ChainUpdate,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    agent = await agent_service.get_agent(db, agent_id)
-    if not agent:
-        raise HTTPException(status_code=404, detail="Agent not found")
+    await _get_owned_agent(agent_id, current_user, db)
     chain = await chain_service.get_chain(db, chain_id)
     if not chain or chain.agent_id != agent_id:
         raise HTTPException(status_code=404, detail="Chain not found")
@@ -67,11 +107,12 @@ async def update_chain(
 
 @router.delete("/{chain_id}", status_code=204)
 async def delete_chain(
-    agent_id: uuid.UUID, chain_id: uuid.UUID, db: AsyncSession = Depends(get_db)
+    agent_id: uuid.UUID,
+    chain_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    agent = await agent_service.get_agent(db, agent_id)
-    if not agent:
-        raise HTTPException(status_code=404, detail="Agent not found")
+    await _get_owned_agent(agent_id, current_user, db)
     chain = await chain_service.get_chain(db, chain_id)
     if not chain or chain.agent_id != agent_id:
         raise HTTPException(status_code=404, detail="Chain not found")

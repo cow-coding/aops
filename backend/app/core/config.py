@@ -12,6 +12,12 @@ class Settings(BaseSettings):
     # Defaults to empty string; the route handler falls back to request.base_url.
     SERVER_URL: str = ""
 
+    # JWT settings
+    SECRET_KEY: str = "change-me-in-production-use-a-long-random-string"
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 
