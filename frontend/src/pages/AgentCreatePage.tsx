@@ -1,24 +1,34 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  Alert,
   Box,
   Button,
+  CircularProgress,
   Divider,
   TextField,
+  Tooltip,
   Typography,
-  Alert,
-  CircularProgress,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import type { AgentCreateRequest } from '../types/agent';
 import { agentApi } from '../services/agentApi';
-import { colors } from '../theme';
+
+function getDisabledReason(form: AgentCreateRequest): string {
+  if (!form.name.trim()) return 'Required: agent name';
+  return '';
+}
 
 export default function AgentCreatePage() {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const colors = theme.colors;
+
   const [form, setForm] = useState<AgentCreateRequest>({
     name: '',
     description: '',
   });
+  const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,6 +38,10 @@ export default function AgentCreatePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitted(true);
+    const isValid = form.name.trim() !== '';
+    if (!isValid) return;
+
     setSubmitting(true);
     setError(null);
 
@@ -41,7 +55,7 @@ export default function AgentCreatePage() {
     }
   };
 
-  const isValid = form.name.trim() !== '';
+  const disabledReason = getDisabledReason(form);
 
   return (
     <Box sx={{ maxWidth: 640 }}>
@@ -77,7 +91,12 @@ export default function AgentCreatePage() {
             placeholder="my-agent"
             value={form.name}
             onChange={(e) => handleChange('name', e.target.value)}
-            helperText="Great names are short and memorable."
+            error={submitted && !form.name.trim()}
+            helperText={
+              submitted && !form.name.trim()
+                ? 'Agent name is required'
+                : 'Great names are short and memorable.'
+            }
           />
         </Box>
 
@@ -110,17 +129,21 @@ export default function AgentCreatePage() {
           <Button variant="outlined" onClick={() => navigate('/agents')}>
             Cancel
           </Button>
-          <Button
-            type="submit"
-            variant="contained"
-            disabled={!isValid || submitting}
-          >
-            {submitting ? (
-              <CircularProgress size={16} sx={{ color: 'white' }} />
-            ) : (
-              'Create agent'
-            )}
-          </Button>
+          <Tooltip title={disabledReason} placement="top" arrow>
+            <span>
+              <Button
+                type="submit"
+                variant="contained"
+                disabled={!form.name.trim() || submitting}
+              >
+                {submitting ? (
+                  <CircularProgress size={16} sx={{ color: 'white' }} />
+                ) : (
+                  'Create agent'
+                )}
+              </Button>
+            </span>
+          </Tooltip>
         </Box>
       </Box>
     </Box>

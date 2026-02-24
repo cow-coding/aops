@@ -3,10 +3,10 @@ import type { ApiKey, ApiKeyCreateRequest, ApiKeyCreateResponse } from '../types
 
 export const apiKeyApi = {
   list: (agentId: string) =>
-    api.get<ApiKey[]>(`/agents/${agentId}/api-keys`),
+    api.get<ApiKey[]>(`/agents/${agentId}/api-keys/`),
 
   create: (agentId: string, data: ApiKeyCreateRequest) =>
-    api.post<ApiKeyCreateResponse>(`/agents/${agentId}/api-keys`, data),
+    api.post<ApiKeyCreateResponse>(`/agents/${agentId}/api-keys/`, data),
 
   revoke: (agentId: string, keyId: string) =>
     api.delete<void>(`/agents/${agentId}/api-keys/${keyId}`),

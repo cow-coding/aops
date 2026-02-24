@@ -15,6 +15,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined';
 import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
@@ -23,13 +24,14 @@ import KeyOutlinedIcon from '@mui/icons-material/KeyOutlined';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import CheckIcon from '@mui/icons-material/Check';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import type { Agent } from '../types/agent';
 import type { Chain } from '../types/chain';
 import type { ApiKey, ApiKeyCreateResponse } from '../types/apiKey';
 import { agentApi } from '../services/agentApi';
 import { chainApi } from '../services/chainApi';
 import { apiKeyApi } from '../services/apiKeyApi';
-import { colors, monoFontFamily } from '../theme';
+import { monoFontFamily } from '../theme';
 
 function relativeTime(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -63,6 +65,8 @@ interface CreateKeyDialogProps {
 }
 
 function CreateKeyDialog({ open, onClose, onCreated, agentId }: CreateKeyDialogProps) {
+  const theme = useTheme();
+  const colors = theme.colors;
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -137,6 +141,8 @@ interface RevealKeyDialogProps {
 }
 
 function RevealKeyDialog({ open, result, onClose }: RevealKeyDialogProps) {
+  const theme = useTheme();
+  const colors = theme.colors;
   const [copied, setCopied] = useState(false);
 
   function handleCopy() {
@@ -169,7 +175,7 @@ function RevealKeyDialog({ open, result, onClose }: RevealKeyDialogProps) {
             alignItems: 'center',
             gap: 1,
             background: colors.canvas.inset,
-            border: `1px solid ${colors.border.default}`,
+            border: `1px solid ${colors.border.muted}`,
             borderRadius: 1,
             px: 1.5,
             py: 1,
@@ -180,7 +186,7 @@ function RevealKeyDialog({ open, result, onClose }: RevealKeyDialogProps) {
             sx={{
               fontFamily: monoFontFamily,
               fontSize: '0.8125rem',
-              color: colors.fg.default,
+              color: colors.terminal.green,
               flex: 1,
               wordBreak: 'break-all',
             }}
@@ -205,7 +211,7 @@ function RevealKeyDialog({ open, result, onClose }: RevealKeyDialogProps) {
         <Box
           sx={{
             background: colors.canvas.inset,
-            border: `1px solid ${colors.border.default}`,
+            border: `1px solid ${colors.border.muted}`,
             borderRadius: 1,
             px: 1.5,
             py: 1.25,
@@ -244,6 +250,8 @@ interface RevokeDialogProps {
 }
 
 function RevokeDialog({ open, apiKey, onClose, onConfirm }: RevokeDialogProps) {
+  const theme = useTheme();
+  const colors = theme.colors;
   const [loading, setLoading] = useState(false);
 
   async function handleConfirm() {
@@ -274,8 +282,16 @@ function RevokeDialog({ open, apiKey, onClose, onConfirm }: RevokeDialogProps) {
           disabled={loading}
           startIcon={loading ? <CircularProgress size={14} color="inherit" /> : undefined}
           sx={{
-            backgroundColor: colors.danger.emphasis,
-            '&:hover': { backgroundColor: '#b91c1c' },
+            '&.MuiButton-containedPrimary': {
+              backgroundColor: colors.danger.emphasis,
+              color: colors.fg.onEmphasis,
+              '&:hover': { backgroundColor: '#b91c1c' },
+            },
+            '&.MuiButton-containedPrimary.Mui-disabled': {
+              backgroundColor: colors.danger.emphasis,
+              opacity: 0.4,
+              color: colors.fg.onEmphasis,
+            },
           }}
         >
           {loading ? 'Revoking...' : 'Revoke key'}
@@ -290,6 +306,8 @@ function RevokeDialog({ open, apiKey, onClose, onConfirm }: RevokeDialogProps) {
 export default function AgentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const colors = theme.colors;
 
   const [agent, setAgent] = useState<Agent | null>(null);
   const [chains, setChains] = useState<Chain[]>([]);
@@ -301,6 +319,9 @@ export default function AgentDetailPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [revealResult, setRevealResult] = useState<ApiKeyCreateResponse | null>(null);
   const [revokeTarget, setRevokeTarget] = useState<ApiKey | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
 
   useEffect(() => {
     if (!id) return;
@@ -318,6 +339,20 @@ export default function AgentDetailPage() {
     setApiKeys((prev) => [result, ...prev]);
     setCreateOpen(false);
     setRevealResult(result);
+  }
+
+  async function handleDeleteAgent() {
+    if (!id) return;
+    setDeleting(true);
+    try {
+      await agentApi.delete(id);
+      navigate('/agents');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete agent');
+      setDeleteDialogOpen(false);
+    } finally {
+      setDeleting(false);
+    }
   }
 
   async function handleRevoke() {
@@ -362,7 +397,20 @@ export default function AgentDetailPage() {
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
         <SmartToyOutlinedIcon sx={{ fontSize: 32, color: colors.fg.muted }} />
-        <Typography variant="h2">{agent.name}</Typography>
+        <Typography variant="h2" sx={{ flex: 1 }}>{agent.name}</Typography>
+        <Button
+          size="small"
+          variant="text"
+          startIcon={<DeleteOutlinedIcon />}
+          onClick={() => setDeleteDialogOpen(true)}
+          sx={{
+            color: colors.danger.fg,
+            ml: 'auto',
+            '&:hover': { backgroundColor: colors.danger.subtle },
+          }}
+        >
+          Delete
+        </Button>
       </Box>
 
       <Divider sx={{ mb: 3 }} />
@@ -398,7 +446,7 @@ export default function AgentDetailPage() {
       <Divider sx={{ my: 3 }} />
 
       {/* Chains section */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
         <Typography variant="h3">Chains</Typography>
         <Button
           size="small"
@@ -409,8 +457,6 @@ export default function AgentDetailPage() {
           New Chain
         </Button>
       </Box>
-
-      <Divider />
 
       {chains.length === 0 ? (
         <Box sx={{ py: 6, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -434,68 +480,70 @@ export default function AgentDetailPage() {
           </Button>
         </Box>
       ) : (
-        <Box>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 2 }}>
           {chains.map((chain) => (
-            <Box key={chain.id}>
-              <Box
-                onClick={() => navigate(`/agents/${id}/chains/${chain.id}`)}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: 1.5,
-                  py: 1.5,
-                  px: 1,
-                  cursor: 'pointer',
-                  '&:hover': { backgroundColor: 'rgba(255,255,255,0.04)' },
-                  borderRadius: 1,
-                }}
-              >
-                <AccountTreeOutlinedIcon
-                  sx={{ fontSize: 20, color: colors.fg.subtle, mt: 0.25, flexShrink: 0 }}
-                />
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                    <Typography
-                      sx={{
-                        color: colors.accent.fg,
-                        fontWeight: 600,
-                        fontSize: '1rem',
-                        flex: 1,
-                        minWidth: 0,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {chain.name}
-                    </Typography>
-                    <Typography
-                      sx={{
-                        color: colors.fg.subtle,
-                        fontSize: '0.75rem',
-                        flexShrink: 0,
-                        ml: 'auto',
-                      }}
-                    >
-                      {relativeTime(chain.updated_at)}
-                    </Typography>
-                  </Box>
-                  {chain.description && (
-                    <Typography
-                      variant="body1"
-                      sx={{
-                        color: colors.fg.muted,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {chain.description}
-                    </Typography>
-                  )}
+            <Box
+              key={chain.id}
+              onClick={() => navigate(`/agents/${id}/chains/${chain.id}`)}
+              sx={{
+                border: `1px solid ${colors.border.muted}`,
+                borderRadius: '8px',
+                px: 2,
+                py: 1.5,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                transition: 'border-color 0.15s ease, background-color 0.15s ease',
+                '&:hover': {
+                  borderColor: colors.border.hover,
+                  backgroundColor: colors.canvas.subtle,
+                },
+              }}
+            >
+              <AccountTreeOutlinedIcon
+                sx={{ fontSize: 18, color: colors.fg.subtle, flexShrink: 0 }}
+              />
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25 }}>
+                  <Typography
+                    sx={{
+                      color: colors.accent.fg,
+                      fontWeight: 600,
+                      fontSize: '0.875rem',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {chain.name}
+                  </Typography>
+                  <Typography
+                    sx={{
+                      color: colors.fg.subtle,
+                      fontSize: '0.6875rem',
+                      flexShrink: 0,
+                      ml: 'auto',
+                    }}
+                  >
+                    {relativeTime(chain.updated_at)}
+                  </Typography>
                 </Box>
+                {chain.description && (
+                  <Typography
+                    variant="body1"
+                    sx={{
+                      color: colors.fg.muted,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {chain.description}
+                  </Typography>
+                )}
               </Box>
-              <Divider />
+              <ChevronRightIcon sx={{ fontSize: 16, color: colors.fg.subtle, flexShrink: 0 }} />
             </Box>
           ))}
         </Box>
@@ -612,6 +660,65 @@ export default function AgentDetailPage() {
         onClose={() => setRevokeTarget(null)}
         onConfirm={handleRevoke}
       />
+
+      {/* Delete agent dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => { setDeleteDialogOpen(false); setDeleteConfirmName(''); }}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Delete agent</DialogTitle>
+        <DialogContent sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Typography variant="body1">
+            This will permanently delete{' '}
+            <strong style={{ color: colors.fg.default }}>{agent.name}</strong> including all
+            chains, version history, and API keys. This action cannot be undone.
+          </Typography>
+          <Typography variant="body2" sx={{ color: colors.fg.muted }}>
+            Type <strong style={{ color: colors.fg.default }}>{agent.name}</strong> to confirm.
+          </Typography>
+          <TextField
+            size="small"
+            placeholder={agent.name}
+            value={deleteConfirmName}
+            onChange={(e) => setDeleteConfirmName(e.target.value)}
+            autoFocus
+            fullWidth
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && deleteConfirmName === agent.name) handleDeleteAgent();
+            }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button
+            variant="outlined"
+            onClick={() => { setDeleteDialogOpen(false); setDeleteConfirmName(''); }}
+            disabled={deleting}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleDeleteAgent}
+            disabled={deleting || deleteConfirmName !== agent.name}
+            sx={{
+              '&.MuiButton-containedPrimary': {
+                backgroundColor: colors.danger.emphasis,
+                color: colors.fg.onEmphasis,
+                '&:hover': { backgroundColor: '#b91c1c' },
+              },
+              '&.MuiButton-containedPrimary.Mui-disabled': {
+                backgroundColor: colors.danger.emphasis,
+                opacity: 0.4,
+                color: colors.fg.onEmphasis,
+              },
+            }}
+          >
+            {deleting ? <CircularProgress size={16} sx={{ color: 'white' }} /> : 'Delete agent'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

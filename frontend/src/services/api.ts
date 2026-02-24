@@ -1,19 +1,49 @@
+import { authApi } from './authApi';
+
 const API_BASE = '/api/v1';
+
+// Module-level access token — set by AuthContext on login/refresh
+let _accessToken: string | null = null;
+
+export function setAccessToken(token: string | null) {
+  _accessToken = token;
+}
 
 async function request<T>(
   endpoint: string,
   options: RequestInit = {},
+  retry = true,
 ): Promise<T> {
-  const url = `${API_BASE}${endpoint}`;
-  const config: RequestInit = {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-    ...options,
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string>),
   };
 
-  const response = await fetch(url, config);
+  if (_accessToken) {
+    headers['Authorization'] = `Bearer ${_accessToken}`;
+  }
+
+  const response = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+
+  // Auto-refresh on 401
+  if (response.status === 401 && retry) {
+    const storedRefreshToken = localStorage.getItem('refresh_token');
+    if (storedRefreshToken) {
+      try {
+        const { access_token } = await authApi.refresh(storedRefreshToken);
+        setAccessToken(access_token);
+        return request<T>(endpoint, options, false);
+      } catch {
+        localStorage.removeItem('refresh_token');
+        setAccessToken(null);
+        window.location.href = '/login';
+        throw new Error('Session expired. Please log in again.');
+      }
+    } else {
+      window.location.href = '/login';
+      throw new Error('Not authenticated.');
+    }
+  }
 
   if (!response.ok) {
     const errorBody = await response.text();

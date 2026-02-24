@@ -3,18 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Button,
-  Divider,
   InputAdornment,
   TextField,
   Typography,
   CircularProgress,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import type { Agent } from '../types/agent';
 import { agentApi } from '../services/agentApi';
-import { colors } from '../theme';
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -29,6 +29,9 @@ function timeAgo(dateStr: string): string {
 
 export default function AgentListPage() {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const colors = theme.colors;
+
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -105,7 +108,7 @@ export default function AgentListPage() {
       ) : (
         <>
           {/* Search bar */}
-          <Box sx={{ pb: 2, borderBottom: 1, borderColor: 'divider' }}>
+          <Box sx={{ pb: 2, mb: 2 }}>
             <TextField
               placeholder="Find an agent..."
               value={search}
@@ -114,55 +117,75 @@ export default function AgentListPage() {
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <SearchIcon sx={{ color: colors.fg.subtle, fontSize: 20 }} />
+                    <SearchIcon sx={{ color: colors.fg.subtle, fontSize: 18 }} />
                   </InputAdornment>
                 ),
               }}
             />
           </Box>
 
-          {/* Agent list */}
-          <Box>
+          {/* Agent list — card-style rows */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             {filtered.map((agent) => (
-              <Box key={agent.id}>
-                <Box
-                  onClick={() => navigate(`/agents/${agent.id}`)}
-                  sx={{
-                    py: 2,
-                    px: 2,
-                    cursor: 'pointer',
-                    '&:hover': { bgcolor: 'rgba(255,255,255,0.04)' },
-                  }}
-                >
-                  <Typography
-                    sx={{
-                      fontSize: '1.25rem',
-                      fontWeight: 600,
-                      color: colors.accent.fg,
-                      mb: 0.5,
-                    }}
-                  >
-                    {agent.name}
-                  </Typography>
-                  {agent.description && (
+              <Box
+                key={agent.id}
+                onClick={() => navigate(`/agents/${agent.id}`)}
+                sx={{
+                  border: `1px solid ${colors.border.muted}`,
+                  borderRadius: '8px',
+                  px: 2,
+                  py: 1.5,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  transition: 'border-color 0.15s ease, background-color 0.15s ease',
+                  '&:hover': {
+                    borderColor: colors.border.hover,
+                    backgroundColor: colors.canvas.subtle,
+                  },
+                }}
+              >
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25 }}>
                     <Typography
-                      variant="body1"
-                      color="text.secondary"
                       sx={{
+                        fontSize: '0.9375rem',
+                        fontWeight: 600,
+                        color: colors.accent.fg,
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
-                        mb: 1,
+                      }}
+                    >
+                      {agent.name}
+                    </Typography>
+                    <Typography
+                      sx={{
+                        fontSize: '0.6875rem',
+                        color: colors.fg.subtle,
+                        flexShrink: 0,
+                        ml: 'auto',
+                      }}
+                    >
+                      Updated {timeAgo(agent.updated_at)}
+                    </Typography>
+                  </Box>
+                  {agent.description && (
+                    <Typography
+                      variant="body1"
+                      sx={{
+                        color: colors.fg.muted,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
                       }}
                     >
                       {agent.description}
                     </Typography>
                   )}
-                  <Typography variant="caption">
-                    Updated {timeAgo(agent.updated_at)}
-                  </Typography>
                 </Box>
-                <Divider />
+                <ChevronRightIcon sx={{ fontSize: 18, color: colors.fg.subtle, flexShrink: 0 }} />
               </Box>
             ))}
           </Box>

@@ -7,18 +7,29 @@ import {
   CircularProgress,
   Divider,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import type { Agent } from '../types/agent';
 import type { ChainCreateRequest } from '../types/chain';
 import { agentApi } from '../services/agentApi';
 import { chainApi } from '../services/chainApi';
-import { colors, monoFontFamily } from '../theme';
+import { monoFontFamily } from '../theme';
+
+function getDisabledReason(form: ChainCreateRequest): string {
+  const missing: string[] = [];
+  if (!form.name.trim()) missing.push('chain name');
+  if (!form.content.trim()) missing.push('content');
+  return missing.length ? `Required: ${missing.join(', ')}` : '';
+}
 
 export default function ChainCreatePage() {
   const { agentId } = useParams<{ agentId: string }>();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const colors = theme.colors;
 
   const [agent, setAgent] = useState<Agent | null>(null);
   const [form, setForm] = useState<ChainCreateRequest>({
@@ -28,6 +39,7 @@ export default function ChainCreatePage() {
     content: '',
     message: '',
   });
+  const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,6 +54,10 @@ export default function ChainCreatePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitted(true);
+    const isValid = form.name.trim() !== '' && form.content.trim() !== '';
+    if (!isValid) return;
+
     if (!agentId) return;
     setSubmitting(true);
     setError(null);
@@ -58,8 +74,7 @@ export default function ChainCreatePage() {
     }
   };
 
-  const isValid =
-    form.name.trim() !== '' && form.content.trim() !== '';
+  const disabledReason = getDisabledReason(form);
 
   return (
     <Box sx={{ maxWidth: 640 }}>
@@ -105,7 +120,12 @@ export default function ChainCreatePage() {
             placeholder="my-chain"
             value={form.name}
             onChange={(e) => handleChange('name', e.target.value)}
-            helperText="A short, descriptive name for this chain."
+            error={submitted && !form.name.trim()}
+            helperText={
+              submitted && !form.name.trim()
+                ? 'Chain name is required'
+                : 'A short, descriptive name for this chain.'
+            }
           />
         </Box>
 
@@ -136,7 +156,10 @@ export default function ChainCreatePage() {
             variant="body1"
             sx={{ fontWeight: 600, display: 'block', mb: 1 }}
           >
-            Persona <Typography component="span" variant="caption" sx={{ color: colors.fg.muted }}>(optional)</Typography>
+            Persona{' '}
+            <Typography component="span" variant="caption" sx={{ color: colors.fg.muted }}>
+              (optional)
+            </Typography>
           </Typography>
           <TextField
             fullWidth
@@ -161,14 +184,22 @@ export default function ChainCreatePage() {
             multiline
             minRows={8}
             maxRows={24}
-            placeholder="Enter prompt content..."
+            placeholder="// Enter prompt content..."
             value={form.content}
             onChange={(e) => handleChange('content', e.target.value)}
+            error={submitted && !form.content.trim()}
+            helperText={submitted && !form.content.trim() ? 'Content is required' : undefined}
             inputProps={{
               style: {
                 fontFamily: monoFontFamily,
-                fontSize: '0.875rem',
-                lineHeight: 1.6,
+                fontSize: '0.8125rem',
+                lineHeight: 1.7,
+                letterSpacing: '-0.01em',
+              },
+            }}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                backgroundColor: colors.canvas.inset,
               },
             }}
           />
@@ -200,13 +231,17 @@ export default function ChainCreatePage() {
           <Button variant="outlined" onClick={() => navigate(`/agents/${agentId}`)}>
             Cancel
           </Button>
-          <Button type="submit" variant="contained" disabled={!isValid || submitting}>
-            {submitting ? (
-              <CircularProgress size={16} sx={{ color: 'white' }} />
-            ) : (
-              'Create chain'
-            )}
-          </Button>
+          <Tooltip title={disabledReason} placement="top" arrow>
+            <span>
+              <Button type="submit" variant="contained" disabled={!form.name.trim() || !form.content.trim() || submitting}>
+                {submitting ? (
+                  <CircularProgress size={16} sx={{ color: 'white' }} />
+                ) : (
+                  'Create chain'
+                )}
+              </Button>
+            </span>
+          </Tooltip>
         </Box>
       </Box>
     </Box>
