@@ -694,8 +694,6 @@ export default function ChainDetailPage() {
                 <TextField
                   fullWidth
                   multiline
-                  minRows={8}
-                  maxRows={24}
                   placeholder="// Enter prompt content..."
                   value={form.content ?? chain.content}
                   onChange={(e) => setForm((prev) => ({ ...prev, content: e.target.value }))}
@@ -710,6 +708,10 @@ export default function ChainDetailPage() {
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       backgroundColor: colors.canvas.inset,
+                    },
+                    '& .MuiInputBase-inputMultiline': {
+                      resize: 'vertical',
+                      minHeight: '200px',
                     },
                   }}
                 />

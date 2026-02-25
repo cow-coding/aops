@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class ChainCreate(BaseModel):
-    name: str
+    name: str = Field(min_length=1, max_length=100, pattern=r"^[a-z0-9][a-z0-9_-]*$")
     description: str | None = None
     persona: str | None = None
     content: str = Field(min_length=1)
@@ -13,7 +13,7 @@ class ChainCreate(BaseModel):
 
 
 class ChainUpdate(BaseModel):
-    name: str | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=100, pattern=r"^[a-z0-9][a-z0-9_-]*$")
     description: str | None = None
     persona: str | None = None
     content: str | None = None

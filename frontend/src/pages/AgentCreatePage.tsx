@@ -14,8 +14,11 @@ import { useTheme } from '@mui/material/styles';
 import type { AgentCreateRequest } from '../types/agent';
 import { agentApi } from '../services/agentApi';
 
+const NAME_PATTERN = /^[a-z0-9][a-z0-9_-]*$/;
+
 function getDisabledReason(form: AgentCreateRequest): string {
   if (!form.name.trim()) return 'Required: agent name';
+  if (!NAME_PATTERN.test(form.name)) return 'Agent name contains invalid characters';
   return '';
 }
 
@@ -39,7 +42,7 @@ export default function AgentCreatePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitted(true);
-    const isValid = form.name.trim() !== '';
+    const isValid = form.name.trim() !== '' && NAME_PATTERN.test(form.name);
     if (!isValid) return;
 
     setSubmitting(true);
@@ -91,10 +94,13 @@ export default function AgentCreatePage() {
             placeholder="my-agent"
             value={form.name}
             onChange={(e) => handleChange('name', e.target.value)}
-            error={submitted && !form.name.trim()}
+            inputProps={{ maxLength: 100 }}
+            error={(submitted && !form.name.trim()) || (!!form.name && !NAME_PATTERN.test(form.name))}
             helperText={
               submitted && !form.name.trim()
-                ? 'Agent name is required'
+                ? 'Name is required'
+                : form.name && !NAME_PATTERN.test(form.name)
+                ? 'Lowercase letters, numbers, hyphens, and underscores only. Must start with a letter or number.'
                 : 'Great names are short and memorable.'
             }
           />
@@ -134,7 +140,7 @@ export default function AgentCreatePage() {
               <Button
                 type="submit"
                 variant="contained"
-                disabled={!form.name.trim() || submitting}
+                disabled={!form.name.trim() || !NAME_PATTERN.test(form.name) || submitting}
               >
                 {submitting ? (
                   <CircularProgress size={16} sx={{ color: 'white' }} />

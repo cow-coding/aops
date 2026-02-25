@@ -18,10 +18,13 @@ import { agentApi } from '../services/agentApi';
 import { chainApi } from '../services/chainApi';
 import { monoFontFamily } from '../theme';
 
+const NAME_PATTERN = /^[a-z0-9][a-z0-9_-]*$/;
+
 function getDisabledReason(form: ChainCreateRequest): string {
   const missing: string[] = [];
   if (!form.name.trim()) missing.push('chain name');
   if (!form.content.trim()) missing.push('content');
+  if (form.name && !NAME_PATTERN.test(form.name)) return 'Chain name contains invalid characters';
   return missing.length ? `Required: ${missing.join(', ')}` : '';
 }
 
@@ -55,7 +58,7 @@ export default function ChainCreatePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitted(true);
-    const isValid = form.name.trim() !== '' && form.content.trim() !== '';
+    const isValid = form.name.trim() !== '' && NAME_PATTERN.test(form.name) && form.content.trim() !== '';
     if (!isValid) return;
 
     if (!agentId) return;
@@ -120,10 +123,13 @@ export default function ChainCreatePage() {
             placeholder="my-chain"
             value={form.name}
             onChange={(e) => handleChange('name', e.target.value)}
-            error={submitted && !form.name.trim()}
+            inputProps={{ maxLength: 100 }}
+            error={(submitted && !form.name.trim()) || (!!form.name && !NAME_PATTERN.test(form.name))}
             helperText={
               submitted && !form.name.trim()
-                ? 'Chain name is required'
+                ? 'Name is required'
+                : form.name && !NAME_PATTERN.test(form.name)
+                ? 'Lowercase letters, numbers, hyphens, and underscores only. Must start with a letter or number.'
                 : 'A short, descriptive name for this chain.'
             }
           />
@@ -182,8 +188,6 @@ export default function ChainCreatePage() {
             required
             fullWidth
             multiline
-            minRows={8}
-            maxRows={24}
             placeholder="// Enter prompt content..."
             value={form.content}
             onChange={(e) => handleChange('content', e.target.value)}
@@ -200,6 +204,10 @@ export default function ChainCreatePage() {
             sx={{
               '& .MuiOutlinedInput-root': {
                 backgroundColor: colors.canvas.inset,
+              },
+              '& .MuiInputBase-inputMultiline': {
+                resize: 'vertical',
+                minHeight: '200px',
               },
             }}
           />
@@ -233,7 +241,7 @@ export default function ChainCreatePage() {
           </Button>
           <Tooltip title={disabledReason} placement="top" arrow>
             <span>
-              <Button type="submit" variant="contained" disabled={!form.name.trim() || !form.content.trim() || submitting}>
+              <Button type="submit" variant="contained" disabled={!form.name.trim() || !NAME_PATTERN.test(form.name) || !form.content.trim() || submitting}>
                 {submitting ? (
                   <CircularProgress size={16} sx={{ color: 'white' }} />
                 ) : (
