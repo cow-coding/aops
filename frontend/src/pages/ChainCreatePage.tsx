@@ -21,11 +21,11 @@ import { monoFontFamily } from '../theme';
 const NAME_PATTERN = /^[a-z0-9][a-z0-9_-]*$/;
 
 function getDisabledReason(form: ChainCreateRequest): string {
-  const missing: string[] = [];
-  if (!form.name.trim()) missing.push('chain name');
-  if (!form.content.trim()) missing.push('content');
-  if (form.name && !NAME_PATTERN.test(form.name)) return 'Chain name contains invalid characters';
-  return missing.length ? `Required: ${missing.join(', ')}` : '';
+  const issues: string[] = [];
+  if (!form.name.trim()) issues.push('chain name');
+  else if (!NAME_PATTERN.test(form.name)) issues.push('valid chain name');
+  if (!form.content.trim()) issues.push('content');
+  return issues.length ? `Required: ${issues.join(', ')}` : '';
 }
 
 export default function ChainCreatePage() {
