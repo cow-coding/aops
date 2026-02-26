@@ -57,6 +57,7 @@ class ChainCallLog(Base):
     called_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
+    order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     run: Mapped["AgentRun"] = relationship("AgentRun", back_populates="chain_calls")

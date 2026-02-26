@@ -19,12 +19,13 @@ async def create_run(
     db.add(run)
     await db.flush()
 
-    for call in data.chain_calls:
+    for i, call in enumerate(data.chain_calls):
         log = ChainCallLog(
             run_id=run.id,
             agent_id=agent_id,
             chain_name=call.chain_name,
             called_at=call.called_at,
+            order=i,
             latency_ms=call.latency_ms,
         )
         db.add(log)
@@ -52,7 +53,7 @@ async def get_flow(
             ChainCallLog.latency_ms,
         )
         .where(ChainCallLog.agent_id == agent_id)
-        .order_by(ChainCallLog.run_id, ChainCallLog.called_at)
+        .order_by(ChainCallLog.run_id, ChainCallLog.order)
     )
     rows = result.all()
 
