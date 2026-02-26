@@ -18,6 +18,7 @@ class ChainUpdate(BaseModel):
     persona: str | None = None
     content: str | None = None
     message: str | None = Field(default=None, max_length=500)
+    show_in_flow: bool | None = None
 
 
 class ChainResponse(BaseModel):
@@ -29,5 +30,6 @@ class ChainResponse(BaseModel):
     description: str | None
     persona: str | None
     content: str
+    show_in_flow: bool
     created_at: datetime
     updated_at: datetime

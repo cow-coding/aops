@@ -5,6 +5,7 @@ export interface Chain {
   description: string | null;
   persona: string | null;
   content: string;
+  show_in_flow: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -23,6 +24,7 @@ export interface ChainUpdateRequest {
   persona?: string | null;
   content?: string;
   message?: string;
+  show_in_flow?: boolean;
 }
 
 export interface ChainVersion {

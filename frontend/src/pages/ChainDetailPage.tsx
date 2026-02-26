@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -13,7 +13,9 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
+  FormControlLabel,
   IconButton,
+  Switch,
   Tab,
   Tabs,
   TextField,
@@ -436,7 +438,7 @@ function VersionRow({
 }
 
 export default function ChainDetailPage() {
-  const { agentId, chainId } = useParams<{ agentId: string; chainId: string }>();
+  const { id: agentId, chainId } = useParams<{ id: string; chainId: string }>();
   const navigate = useNavigate();
   const theme = useTheme();
   const colors = theme.colors;
@@ -464,6 +466,13 @@ export default function ChainDetailPage() {
   const [rollbackVersion, setRollbackVersion] = useState<ChainVersion | null>(null);
   const [rollingBack, setRollingBack] = useState(false);
   const [rollbackError, setRollbackError] = useState<string | null>(null);
+
+  const [editingDesc, setEditingDesc] = useState(false);
+  const [descValue, setDescValue] = useState('');
+  const [descSaving, setDescSaving] = useState(false);
+  const [descError, setDescError] = useState<string | null>(null);
+
+  const [showInFlowSaving, setShowInFlowSaving] = useState(false);
 
   const loadData = () => {
     if (!agentId || !chainId) return;
@@ -537,7 +546,7 @@ export default function ChainDetailPage() {
     setDeleting(true);
     try {
       await chainApi.delete(agentId, chainId);
-      navigate(`/agents/${agentId}`);
+      navigate(`/agents/${agentId}/chains`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete chain');
       setDeleteDialogOpen(false);
@@ -563,6 +572,53 @@ export default function ChainDetailPage() {
     }
   };
 
+  function handleStartEditDesc() {
+    if (!chain) return;
+    setDescValue(chain.description ?? '');
+    setDescError(null);
+    setEditingDesc(true);
+  }
+
+  function handleCancelDesc() {
+    setEditingDesc(false);
+    setDescError(null);
+  }
+
+  async function handleSaveDesc() {
+    if (!agentId || !chainId) return;
+    setDescSaving(true);
+    setDescError(null);
+    try {
+      const updated = await chainApi.update(agentId, chainId, { description: descValue.trim() || undefined });
+      setChain(updated);
+      setEditingDesc(false);
+    } catch (err) {
+      setDescError(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setDescSaving(false);
+    }
+  }
+
+  function handleDescKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Escape') handleCancelDesc();
+    if (e.key === 'Enter' && e.ctrlKey) handleSaveDesc();
+  }
+
+  async function handleToggleShowInFlow() {
+    if (!agentId || !chainId || !chain) return;
+    const newValue = !chain.show_in_flow;
+    setChain((prev) => (prev ? { ...prev, show_in_flow: newValue } : prev));
+    setShowInFlowSaving(true);
+    try {
+      const updated = await chainApi.update(agentId, chainId, { show_in_flow: newValue });
+      setChain(updated);
+    } catch {
+      setChain((prev) => (prev ? { ...prev, show_in_flow: !newValue } : prev));
+    } finally {
+      setShowInFlowSaving(false);
+    }
+  }
+
   const isFormValid = (form.content ?? '').trim() !== '';
 
   if (loading) {
@@ -579,7 +635,7 @@ export default function ChainDetailPage() {
         <Alert severity="error" sx={{ mb: 2 }}>
           {error ?? 'Chain not found'}
         </Alert>
-        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(`/agents/${agentId}`)}>
+        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(`/agents/${agentId}/chains`)}>
           Back to Agent
         </Button>
       </Box>
@@ -591,7 +647,7 @@ export default function ChainDetailPage() {
       {/* Back navigation */}
       <Button
         startIcon={<ArrowBackIcon />}
-        onClick={() => navigate(`/agents/${agentId}`)}
+        onClick={() => navigate(`/agents/${agentId}/chains`)}
         sx={{ mb: 2, color: colors.fg.muted, '&:hover': { color: colors.fg.default } }}
       >
         Back to {agent?.name ?? 'Agent'}
@@ -618,12 +674,51 @@ export default function ChainDetailPage() {
         </Button>
       </Box>
 
-      <Typography
-        variant="body1"
-        sx={{ color: chain.description ? colors.fg.muted : colors.fg.subtle, mb: 2 }}
-      >
-        {chain.description ?? 'No description'}
-      </Typography>
+      {editingDesc ? (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
+          <TextField
+            fullWidth
+            multiline
+            rows={2}
+            value={descValue}
+            onChange={(e) => setDescValue(e.target.value)}
+            onKeyDown={handleDescKeyDown}
+            autoFocus
+            placeholder="Add a description..."
+            size="small"
+          />
+          {descError && (
+            <Typography sx={{ fontSize: '0.75rem', color: colors.danger.fg }}>
+              {descError}
+            </Typography>
+          )}
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button size="small" variant="contained" onClick={handleSaveDesc} disabled={descSaving}>
+              {descSaving ? <CircularProgress size={12} color="inherit" /> : 'Save'}
+            </Button>
+            <Button size="small" variant="outlined" onClick={handleCancelDesc} disabled={descSaving}>
+              Cancel
+            </Button>
+          </Box>
+        </Box>
+      ) : (
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, mb: 2 }}>
+          <Typography
+            variant="body1"
+            sx={{ color: chain.description ? colors.fg.muted : colors.fg.subtle, cursor: 'text' }}
+            onClick={handleStartEditDesc}
+          >
+            {chain.description ?? 'No description'}
+          </Typography>
+          <IconButton
+            size="small"
+            onClick={handleStartEditDesc}
+            sx={{ p: 0.25, color: colors.fg.subtle, flexShrink: 0 }}
+          >
+            <EditOutlinedIcon sx={{ fontSize: 14 }} />
+          </IconButton>
+        </Box>
+      )}
 
       {/* Tabs + Edit button row */}
       <Box
@@ -816,6 +911,35 @@ export default function ChainDetailPage() {
           )}
         </Box>
       )}
+
+      {/* ── Settings section ── */}
+      <Box sx={{ mt: 4, pt: 3, borderTop: `1px solid ${colors.border.muted}` }}>
+        <Typography variant="body2" sx={{ fontWeight: 600, mb: 2, color: colors.fg.muted }}>
+          Settings
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box>
+            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+              Show in Flow
+            </Typography>
+            <Typography variant="caption" sx={{ color: colors.fg.muted }}>
+              Include this chain in the agent's flow visualization.
+            </Typography>
+          </Box>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={chain.show_in_flow}
+                onChange={handleToggleShowInFlow}
+                disabled={showInFlowSaving}
+                size="small"
+              />
+            }
+            label=""
+            sx={{ m: 0 }}
+          />
+        </Box>
+      </Box>
 
       {/* ── Commit dialog ── */}
       <Dialog
