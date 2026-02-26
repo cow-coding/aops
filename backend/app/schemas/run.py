@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ChainCallLogCreate(BaseModel):
@@ -13,7 +13,7 @@ class ChainCallLogCreate(BaseModel):
 class AgentRunCreate(BaseModel):
     started_at: datetime
     ended_at: datetime | None = None
-    chain_calls: list[ChainCallLogCreate] = []
+    chain_calls: list[ChainCallLogCreate] = Field(default=[], max_length=1000)
 
 
 class AgentRunResponse(BaseModel):
