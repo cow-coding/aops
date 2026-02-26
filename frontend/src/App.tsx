@@ -3,7 +3,12 @@ import AppShell from './components/AppShell';
 import { useAuth } from './contexts/AuthContext';
 import AgentListPage from './pages/AgentListPage';
 import AgentCreatePage from './pages/AgentCreatePage';
-import AgentDetailPage from './pages/AgentDetailPage';
+import AgentDetailLayout from './pages/agent/AgentDetailLayout';
+import AgentOverviewTab from './pages/agent/AgentOverviewTab';
+import AgentChainsTab from './pages/agent/AgentChainsTab';
+import AgentApiKeysTab from './pages/agent/AgentApiKeysTab';
+import AgentFlowTab from './pages/agent/AgentFlowTab';
+import AgentSettingsTab from './pages/agent/AgentSettingsTab';
 import ChainCreatePage from './pages/ChainCreatePage';
 import ChainDetailPage from './pages/ChainDetailPage';
 import GroupsPage from './pages/GroupsPage';
@@ -47,9 +52,19 @@ export default function App() {
         <Route path="/" element={<Navigate to="/agents" replace />} />
         <Route path="/agents" element={<AgentListPage />} />
         <Route path="/agents/new" element={<AgentCreatePage />} />
-        <Route path="/agents/:id" element={<AgentDetailPage />} />
-        <Route path="/agents/:agentId/chains/new" element={<ChainCreatePage />} />
-        <Route path="/agents/:agentId/chains/:chainId" element={<ChainDetailPage />} />
+        <Route path="/agents/:id" element={<AgentDetailLayout />}>
+          <Route index element={<Navigate to="overview" replace />} />
+          <Route path="overview" element={<AgentOverviewTab />} />
+          <Route path="chains" element={<AgentChainsTab />} />
+          <Route path="api-keys" element={<AgentApiKeysTab />} />
+          <Route path="flow" element={<AgentFlowTab />} />
+          <Route path="settings" element={<AgentSettingsTab />} />
+        </Route>
+
+        {/* standalone — AgentDetailLayout 밖 */}
+        <Route path="/agents/:id/chains/new" element={<ChainCreatePage />} />
+        <Route path="/agents/:id/chains/:chainId" element={<ChainDetailPage />} />
+
         <Route path="/groups" element={<GroupsPage />} />
       </Route>
     </Routes>

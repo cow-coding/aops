@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import {
   Alert,
   Box,
@@ -16,44 +16,15 @@ import {
   Typography,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined';
-import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
 import AddIcon from '@mui/icons-material/Add';
 import KeyOutlinedIcon from '@mui/icons-material/KeyOutlined';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import CheckIcon from '@mui/icons-material/Check';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import type { Agent } from '../types/agent';
-import type { Chain } from '../types/chain';
-import type { ApiKey, ApiKeyCreateResponse } from '../types/apiKey';
-import { agentApi } from '../services/agentApi';
-import { chainApi } from '../services/chainApi';
-import { apiKeyApi } from '../services/apiKeyApi';
-import { monoFontFamily } from '../theme';
-
-function relativeTime(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 60) return `Updated ${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `Updated ${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `Updated ${days}d ago`;
-}
-
-function relativeUsed(dateStr: string | null): string {
-  if (!dateStr) return 'Never used';
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return 'Used just now';
-  if (minutes < 60) return `Used ${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `Used ${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `Used ${days}d ago`;
-}
+import type { ApiKey, ApiKeyCreateResponse } from '../../types/apiKey';
+import type { AgentDetailContext } from '../../types/agentDetail';
+import { apiKeyApi } from '../../services/apiKeyApi';
+import { monoFontFamily } from '../../theme';
 
 // ── Create Key Dialog ────────────────────────────────────────────────────────
 
@@ -168,7 +139,6 @@ function RevealKeyDialog({ open, result, onClose }: RevealKeyDialogProps) {
           {result?.name}
         </Typography>
 
-        {/* Key display */}
         <Box
           sx={{
             display: 'flex',
@@ -204,7 +174,6 @@ function RevealKeyDialog({ open, result, onClose }: RevealKeyDialogProps) {
           </Tooltip>
         </Box>
 
-        {/* Usage snippet */}
         <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.75 }}>
           Usage
         </Typography>
@@ -301,39 +270,28 @@ function RevokeDialog({ open, apiKey, onClose, onConfirm }: RevokeDialogProps) {
   );
 }
 
-// ── Main Page ────────────────────────────────────────────────────────────────
+// ── Main Tab ────────────────────────────────────────────────────────────────
 
-export default function AgentDetailPage() {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+function relativeUsed(dateStr: string | null): string {
+  if (!dateStr) return 'Never used';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return 'Used just now';
+  if (minutes < 60) return `Used ${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `Used ${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `Used ${days}d ago`;
+}
+
+export default function AgentApiKeysTab() {
+  const { agent, apiKeys, setApiKeys } = useOutletContext<AgentDetailContext>();
   const theme = useTheme();
   const colors = theme.colors;
 
-  const [agent, setAgent] = useState<Agent | null>(null);
-  const [chains, setChains] = useState<Chain[]>([]);
-  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Dialog state
   const [createOpen, setCreateOpen] = useState(false);
   const [revealResult, setRevealResult] = useState<ApiKeyCreateResponse | null>(null);
   const [revokeTarget, setRevokeTarget] = useState<ApiKey | null>(null);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteConfirmName, setDeleteConfirmName] = useState('');
-
-  useEffect(() => {
-    if (!id) return;
-    Promise.all([agentApi.getById(id), chainApi.list(id), apiKeyApi.list(id)])
-      .then(([ag, ch, keys]) => {
-        setAgent(ag);
-        setChains(ch);
-        setApiKeys(keys);
-      })
-      .catch((err: Error) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [id]);
 
   function handleKeyCreated(result: ApiKeyCreateResponse) {
     setApiKeys((prev) => [result, ...prev]);
@@ -341,217 +299,15 @@ export default function AgentDetailPage() {
     setRevealResult(result);
   }
 
-  async function handleDeleteAgent() {
-    if (!id) return;
-    setDeleting(true);
-    try {
-      await agentApi.delete(id);
-      navigate('/agents');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete agent');
-      setDeleteDialogOpen(false);
-    } finally {
-      setDeleting(false);
-    }
-  }
-
   async function handleRevoke() {
-    if (!revokeTarget || !id) return;
-    await apiKeyApi.revoke(id, revokeTarget.id);
+    if (!revokeTarget) return;
+    await apiKeyApi.revoke(agent.id, revokeTarget.id);
     setApiKeys((prev) => prev.filter((k) => k.id !== revokeTarget.id));
     setRevokeTarget(null);
   }
 
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  if (error || !agent) {
-    return (
-      <Box sx={{ mt: 4 }}>
-        <Typography color="error">{error ?? 'Agent not found'}</Typography>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate('/agents')}
-          sx={{ mt: 2 }}
-        >
-          Back to Agents
-        </Button>
-      </Box>
-    );
-  }
-
   return (
     <Box>
-      <Button
-        startIcon={<ArrowBackIcon />}
-        onClick={() => navigate('/agents')}
-        sx={{ mb: 2 }}
-      >
-        Back to Agents
-      </Button>
-
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-        <SmartToyOutlinedIcon sx={{ fontSize: 32, color: colors.fg.muted }} />
-        <Typography variant="h2" sx={{ flex: 1 }}>{agent.name}</Typography>
-        <Button
-          size="small"
-          variant="text"
-          startIcon={<DeleteOutlinedIcon />}
-          onClick={() => setDeleteDialogOpen(true)}
-          sx={{
-            color: colors.danger.fg,
-            ml: 'auto',
-            '&:hover': { backgroundColor: colors.danger.subtle },
-          }}
-        >
-          Delete
-        </Button>
-      </Box>
-
-      <Divider sx={{ mb: 3 }} />
-
-      {/* Metadata */}
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-        <Box>
-          <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
-            Description
-          </Typography>
-          <Typography variant="body1">
-            {agent.description ?? 'No description'}
-          </Typography>
-        </Box>
-        <Box>
-          <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
-            Created
-          </Typography>
-          <Typography variant="body1">
-            {new Date(agent.created_at).toLocaleString()}
-          </Typography>
-        </Box>
-        <Box>
-          <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
-            Last Updated
-          </Typography>
-          <Typography variant="body1">
-            {new Date(agent.updated_at).toLocaleString()}
-          </Typography>
-        </Box>
-      </Box>
-
-      <Divider sx={{ my: 3 }} />
-
-      {/* Chains section */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-        <Typography variant="h3">Chains</Typography>
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<AddIcon sx={{ fontSize: 16 }} />}
-          onClick={() => navigate(`/agents/${id}/chains/new`)}
-        >
-          New Chain
-        </Button>
-      </Box>
-
-      {chains.length === 0 ? (
-        <Box sx={{ py: 6, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <AccountTreeOutlinedIcon sx={{ fontSize: 48, color: colors.fg.subtle }} />
-          <Typography
-            variant="body1"
-            sx={{ color: colors.fg.default, mt: 2, mb: 0.5, fontWeight: 500 }}
-          >
-            No chains yet
-          </Typography>
-          <Typography variant="body1" sx={{ color: colors.fg.muted, mb: 2.5 }}>
-            Add a chain to define prompts for this agent.
-          </Typography>
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<AddIcon sx={{ fontSize: 16 }} />}
-            onClick={() => navigate(`/agents/${id}/chains/new`)}
-          >
-            New Chain
-          </Button>
-        </Box>
-      ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 2 }}>
-          {chains.map((chain) => (
-            <Box
-              key={chain.id}
-              onClick={() => navigate(`/agents/${id}/chains/${chain.id}`)}
-              sx={{
-                border: `1px solid ${colors.border.muted}`,
-                borderRadius: '8px',
-                px: 2,
-                py: 1.5,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1.5,
-                transition: 'border-color 0.15s ease, background-color 0.15s ease',
-                '&:hover': {
-                  borderColor: colors.border.hover,
-                  backgroundColor: colors.canvas.subtle,
-                },
-              }}
-            >
-              <AccountTreeOutlinedIcon
-                sx={{ fontSize: 18, color: colors.fg.subtle, flexShrink: 0 }}
-              />
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25 }}>
-                  <Typography
-                    sx={{
-                      color: colors.accent.fg,
-                      fontWeight: 600,
-                      fontSize: '0.875rem',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {chain.name}
-                  </Typography>
-                  <Typography
-                    sx={{
-                      color: colors.fg.subtle,
-                      fontSize: '0.6875rem',
-                      flexShrink: 0,
-                      ml: 'auto',
-                    }}
-                  >
-                    {relativeTime(chain.updated_at)}
-                  </Typography>
-                </Box>
-                {chain.description && (
-                  <Typography
-                    variant="body1"
-                    sx={{
-                      color: colors.fg.muted,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {chain.description}
-                  </Typography>
-                )}
-              </Box>
-              <ChevronRightIcon sx={{ fontSize: 16, color: colors.fg.subtle, flexShrink: 0 }} />
-            </Box>
-          ))}
-        </Box>
-      )}
-
-      <Divider sx={{ my: 3 }} />
-
-      {/* API Keys section */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h3">API Keys</Typography>
         <Button
@@ -601,9 +357,7 @@ export default function AgentDetailPage() {
                   borderRadius: 1,
                 }}
               >
-                <KeyOutlinedIcon
-                  sx={{ fontSize: 18, color: colors.fg.subtle, flexShrink: 0 }}
-                />
+                <KeyOutlinedIcon sx={{ fontSize: 18, color: colors.fg.subtle, flexShrink: 0 }} />
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.25 }}>
                     <Typography sx={{ fontWeight: 600, fontSize: '0.875rem' }}>
@@ -640,12 +394,11 @@ export default function AgentDetailPage() {
         </Box>
       )}
 
-      {/* Dialogs */}
       <CreateKeyDialog
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         onCreated={handleKeyCreated}
-        agentId={id!}
+        agentId={agent.id}
       />
 
       <RevealKeyDialog
@@ -660,65 +413,6 @@ export default function AgentDetailPage() {
         onClose={() => setRevokeTarget(null)}
         onConfirm={handleRevoke}
       />
-
-      {/* Delete agent dialog */}
-      <Dialog
-        open={deleteDialogOpen}
-        onClose={() => { setDeleteDialogOpen(false); setDeleteConfirmName(''); }}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle>Delete agent</DialogTitle>
-        <DialogContent sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Typography variant="body1">
-            This will permanently delete{' '}
-            <strong style={{ color: colors.fg.default }}>{agent.name}</strong> including all
-            chains, version history, and API keys. This action cannot be undone.
-          </Typography>
-          <Typography variant="body2" sx={{ color: colors.fg.muted }}>
-            Type <strong style={{ color: colors.fg.default }}>{agent.name}</strong> to confirm.
-          </Typography>
-          <TextField
-            size="small"
-            placeholder={agent.name}
-            value={deleteConfirmName}
-            onChange={(e) => setDeleteConfirmName(e.target.value)}
-            autoFocus
-            fullWidth
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && deleteConfirmName === agent.name) handleDeleteAgent();
-            }}
-          />
-        </DialogContent>
-        <DialogActions sx={{ p: 2, gap: 1 }}>
-          <Button
-            variant="outlined"
-            onClick={() => { setDeleteDialogOpen(false); setDeleteConfirmName(''); }}
-            disabled={deleting}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleDeleteAgent}
-            disabled={deleting || deleteConfirmName !== agent.name}
-            sx={{
-              '&.MuiButton-containedPrimary': {
-                backgroundColor: colors.danger.emphasis,
-                color: colors.fg.onEmphasis,
-                '&:hover': { backgroundColor: '#b91c1c' },
-              },
-              '&.MuiButton-containedPrimary.Mui-disabled': {
-                backgroundColor: colors.danger.emphasis,
-                opacity: 0.4,
-                color: colors.fg.onEmphasis,
-              },
-            }}
-          >
-            {deleting ? <CircularProgress size={16} sx={{ color: 'white' }} /> : 'Delete agent'}
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 }

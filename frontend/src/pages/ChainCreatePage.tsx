@@ -29,7 +29,7 @@ function getDisabledReason(form: ChainCreateRequest): string {
 }
 
 export default function ChainCreatePage() {
-  const { agentId } = useParams<{ agentId: string }>();
+  const { id: agentId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const theme = useTheme();
   const colors = theme.colors;
@@ -83,7 +83,7 @@ export default function ChainCreatePage() {
     <Box sx={{ maxWidth: 640 }}>
       <Button
         startIcon={<ArrowBackIcon />}
-        onClick={() => navigate(`/agents/${agentId}`)}
+        onClick={() => navigate(`/agents/${agentId}/chains`)}
         sx={{ mb: 2, color: colors.fg.muted, '&:hover': { color: colors.fg.default } }}
       >
         Back to {agent?.name ?? 'Agent'}
@@ -236,7 +236,7 @@ export default function ChainCreatePage() {
         <Divider />
 
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-          <Button variant="outlined" onClick={() => navigate(`/agents/${agentId}`)}>
+          <Button variant="outlined" onClick={() => navigate(`/agents/${agentId}/chains`)}>
             Cancel
           </Button>
           <Tooltip title={disabledReason} placement="top" arrow>
