@@ -6,6 +6,7 @@ from app.api.routes.auth import router as auth_router
 from app.api.routes.chain import router as chain_router
 from app.api.routes.chain_version import router as chain_version_router
 from app.api.routes.group import router as group_router
+from app.api.routes.run import router as run_router
 
 api_router = APIRouter()
 api_router.include_router(auth_router)
@@ -14,6 +15,7 @@ api_router.include_router(api_key_router)
 api_router.include_router(chain_router)
 api_router.include_router(chain_version_router)
 api_router.include_router(group_router)
+api_router.include_router(run_router)
 
 
 @api_router.get("/")
