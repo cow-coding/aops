@@ -8,6 +8,8 @@ class ChainCallLogCreate(BaseModel):
     chain_name: str
     called_at: datetime
     latency_ms: int | None = None
+    input: str | None = None
+    output: str | None = None
 
 
 class AgentRunCreate(BaseModel):

@@ -27,6 +27,8 @@ async def create_run(
             called_at=call.called_at,
             call_order=i,
             latency_ms=call.latency_ms,
+            input=call.input,
+            output=call.output,
         )
         db.add(log)
 

@@ -480,10 +480,12 @@ export default function ChainDetailPage() {
 
   const [stats, setStats] = useState<ChainStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
+  const [statsLoaded, setStatsLoaded] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
 
   const [logs, setLogs] = useState<ChainLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
+  const [logsLoaded, setLogsLoaded] = useState(false);
   const [logsError, setLogsError] = useState<string | null>(null);
 
   const loadStats = useCallback(() => {
@@ -493,7 +495,7 @@ export default function ChainDetailPage() {
     chainApi.getStats(agentId, chainId)
       .then(setStats)
       .catch((err: Error) => setStatsError(err.message))
-      .finally(() => setStatsLoading(false));
+      .finally(() => { setStatsLoading(false); setStatsLoaded(true); });
   }, [agentId, chainId]);
 
   const loadLogs = useCallback(() => {
@@ -503,7 +505,7 @@ export default function ChainDetailPage() {
     chainApi.getLogs(agentId, chainId, { limit: 100 })
       .then(setLogs)
       .catch((err: Error) => setLogsError(err.message))
-      .finally(() => setLogsLoading(false));
+      .finally(() => { setLogsLoading(false); setLogsLoaded(true); });
   }, [agentId, chainId]);
 
   const loadData = () => {
@@ -766,8 +768,8 @@ export default function ChainDetailPage() {
           setEditing(false);
           setForm({});
           setSaveError(null);
-          if (v === 2 && !stats && !statsLoading) loadStats();
-          if (v === 3 && logs.length === 0 && !logsLoading) loadLogs();
+          if (v === 2 && !statsLoaded && !statsLoading) loadStats();
+          if (v === 3 && !logsLoaded && !logsLoading) loadLogs();
         }}>
           <Tab label="Prompt" />
           <Tab label="History" />

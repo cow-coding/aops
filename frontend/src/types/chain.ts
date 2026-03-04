@@ -5,6 +5,7 @@ export interface Chain {
   description: string | null;
   persona: string | null;
   content: string;
+  position: number;
   show_in_flow: boolean;
   created_at: string;
   updated_at: string;
