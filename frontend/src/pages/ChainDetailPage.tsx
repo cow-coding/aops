@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -31,6 +31,8 @@ import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import RestoreOutlinedIcon from '@mui/icons-material/RestoreOutlined';
+import CallMadeIcon from '@mui/icons-material/CallMade';
+import CallReceivedIcon from '@mui/icons-material/CallReceived';
 import CodeOutlinedIcon from '@mui/icons-material/CodeOutlined';
 import DifferenceOutlinedIcon from '@mui/icons-material/DifferenceOutlined';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -487,6 +489,8 @@ export default function ChainDetailPage() {
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsLoaded, setLogsLoaded] = useState(false);
   const [logsError, setLogsError] = useState<string | null>(null);
+  const [pendingLogs, setPendingLogs] = useState<ChainLog[]>([]);
+  const logsRef = useRef<ChainLog[]>([]);
 
   const loadStats = useCallback(() => {
     if (!agentId || !chainId) return;
@@ -503,10 +507,30 @@ export default function ChainDetailPage() {
     setLogsLoading(true);
     setLogsError(null);
     chainApi.getLogs(agentId, chainId, { limit: 100 })
-      .then(setLogs)
+      .then((data) => { setLogs(data); logsRef.current = data; })
       .catch((err: Error) => setLogsError(err.message))
       .finally(() => { setLogsLoading(false); setLogsLoaded(true); });
   }, [agentId, chainId]);
+
+  // Live polling while Logs tab is active
+  useEffect(() => {
+    if (activeTab !== 3 || !agentId || !chainId) return;
+    const interval = setInterval(async () => {
+      try {
+        const fresh = await chainApi.getLogs(agentId, chainId, { limit: 100 });
+        const currentTopId = logsRef.current[0]?.id;
+        const freshTopId = fresh[0]?.id;
+        if (freshTopId && freshTopId !== currentTopId) {
+          const newCount = fresh.findIndex((l) => l.id === currentTopId);
+          const newLogs = newCount === -1 ? fresh : fresh.slice(0, newCount);
+          setPendingLogs(newLogs);
+        }
+      } catch {
+        // silent — don't disrupt UX on polling error
+      }
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [activeTab, agentId, chainId]);
 
   const loadData = () => {
     if (!agentId || !chainId) return;
@@ -1005,6 +1029,33 @@ export default function ChainDetailPage() {
       {/* ── Logs tab ── */}
       {activeTab === 3 && (
         <Box>
+          {pendingLogs.length > 0 && (
+            <Box
+              onClick={() => {
+                const merged = [...pendingLogs, ...logs];
+                setLogs(merged);
+                logsRef.current = merged;
+                setPendingLogs([]);
+              }}
+              sx={{
+                mb: 1.5,
+                px: 2,
+                py: 1,
+                borderRadius: '6px',
+                background: colors.accent.subtle,
+                border: `1px solid ${colors.accent.emphasis}`,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                '&:hover': { background: colors.accent.muted },
+              }}
+            >
+              <Typography sx={{ fontSize: '0.8125rem', color: colors.accent.fg, fontWeight: 500 }}>
+                ↑ {pendingLogs.length} new {pendingLogs.length === 1 ? 'log' : 'logs'} — click to load
+              </Typography>
+            </Box>
+          )}
           {logsLoading && (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
               <CircularProgress size={28} />
@@ -1052,18 +1103,24 @@ export default function ChainDetailPage() {
                       <Divider sx={{ mb: 1.5 }} />
                       {log.input !== null && (
                         <Box sx={{ mb: log.output !== null ? 1.5 : 0 }}>
-                          <Typography sx={{ fontSize: '0.6875rem', color: colors.fg.muted, mb: 0.5, fontWeight: 600 }}>
+                          <Box sx={{
+                            display: 'inline-flex', alignItems: 'center', gap: 0.5,
+                            px: 0.75, py: 0.25, mb: 0.75, borderRadius: '4px',
+                            backgroundColor: 'rgba(56, 139, 253, 0.12)',
+                            border: '1px solid rgba(56, 139, 253, 0.3)',
+                            color: '#58a6ff', fontSize: '0.625rem', fontWeight: 700,
+                            letterSpacing: '0.08em', lineHeight: 1.4, textTransform: 'uppercase',
+                          }}>
+                            <CallReceivedIcon sx={{ fontSize: '0.7rem' }} />
                             INPUT
-                          </Typography>
+                          </Box>
                           <Typography
                             component="pre"
                             sx={{
-                              fontFamily: monoFontFamily,
-                              fontSize: '0.75rem',
-                              color: colors.fg.default,
-                              whiteSpace: 'pre-wrap',
-                              wordBreak: 'break-word',
-                              m: 0,
+                              fontFamily: monoFontFamily, fontSize: '0.75rem',
+                              color: colors.fg.default, whiteSpace: 'pre-wrap',
+                              wordBreak: 'break-word', m: 0,
+                              borderLeft: '2px solid rgba(56, 139, 253, 0.35)', pl: 1.25,
                             }}
                           >
                             {log.input}
@@ -1072,18 +1129,24 @@ export default function ChainDetailPage() {
                       )}
                       {log.output !== null && (
                         <Box>
-                          <Typography sx={{ fontSize: '0.6875rem', color: colors.fg.muted, mb: 0.5, fontWeight: 600 }}>
+                          <Box sx={{
+                            display: 'inline-flex', alignItems: 'center', gap: 0.5,
+                            px: 0.75, py: 0.25, mb: 0.75, borderRadius: '4px',
+                            backgroundColor: 'rgba(63, 185, 80, 0.12)',
+                            border: '1px solid rgba(63, 185, 80, 0.3)',
+                            color: '#3fb950', fontSize: '0.625rem', fontWeight: 700,
+                            letterSpacing: '0.08em', lineHeight: 1.4, textTransform: 'uppercase',
+                          }}>
+                            <CallMadeIcon sx={{ fontSize: '0.7rem' }} />
                             OUTPUT
-                          </Typography>
+                          </Box>
                           <Typography
                             component="pre"
                             sx={{
-                              fontFamily: monoFontFamily,
-                              fontSize: '0.75rem',
-                              color: colors.fg.default,
-                              whiteSpace: 'pre-wrap',
-                              wordBreak: 'break-word',
-                              m: 0,
+                              fontFamily: monoFontFamily, fontSize: '0.75rem',
+                              color: colors.fg.default, whiteSpace: 'pre-wrap',
+                              wordBreak: 'break-word', m: 0,
+                              borderLeft: '2px solid rgba(63, 185, 80, 0.35)', pl: 1.25,
                             }}
                           >
                             {log.output}
