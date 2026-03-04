@@ -8,23 +8,23 @@ import { createTheme, alpha } from '@mui/material/styles';
 export const colors = {
   canvas: {
     default: '#0A0A0A',
-    overlay: '#141414',
+    overlay: '#1C1C1C',
     inset: '#050505',
-    subtle: '#111111',
-    elevated: '#1A1A1A',
+    subtle: '#171717',
+    elevated: '#232323',
   },
   fg: {
     default: '#F0F0F0',
-    muted: '#888888',
-    subtle: '#555555',
+    muted: '#9E9E9E',
+    subtle: '#787878',
     onEmphasis: '#FFFFFF',
   },
   border: {
-    default: '#242424',
-    muted: '#1C1C1C',
-    subtle: '#141414',
+    default: '#333333',
+    muted: '#2A2A2A',
+    subtle: '#1C1C1C',
     focus: '#5E6AD2',
-    hover: '#333333',
+    hover: '#404040',
   },
   accent: {
     fg: '#8B92E8',
