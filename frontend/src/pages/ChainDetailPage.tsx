@@ -1084,7 +1084,7 @@ export default function ChainDetailPage() {
                     border: isNew ? '1px solid rgba(56,139,253,0.5)' : `1px solid ${colors.border.muted}`,
                     borderRadius: '8px !important',
                     background: isNew ? 'rgba(56,139,253,0.07)' : colors.canvas.subtle,
-                    transition: 'border-color 1.5s ease, background-color 1.5s ease',
+                    transition: 'border-color 1s ease, background-color 1s ease',
                     '&:before': { display: 'none' },
                     '&.Mui-expanded': { borderColor: isNew ? 'rgba(56,139,253,0.5)' : colors.border.default },
                   }}
@@ -1094,9 +1094,6 @@ export default function ChainDetailPage() {
                     sx={{ minHeight: 44, px: 2, '& .MuiAccordionSummary-content': { my: 0 } }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%', mr: 1 }}>
-                      <Typography sx={{ fontSize: '0.75rem', color: colors.fg.muted, flexShrink: 0 }}>
-                        #{log.call_order}
-                      </Typography>
                       <Typography sx={{ fontSize: '0.8125rem', color: colors.fg.default, flex: 1 }}>
                         {formatDate(log.called_at)}
                       </Typography>
