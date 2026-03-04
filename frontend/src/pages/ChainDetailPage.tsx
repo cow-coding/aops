@@ -42,6 +42,32 @@ import { agentApi } from '../services/agentApi';
 import { chainApi } from '../services/chainApi';
 import { monoFontFamily } from '../theme';
 
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function tryFormatJson(text: string): { formatted: string; isJson: boolean } {
+  try {
+    const parsed = JSON.parse(text);
+    return { formatted: JSON.stringify(parsed, null, 2), isJson: true };
+  } catch {
+    return { formatted: text, isJson: false };
+  }
+}
+
+function highlightJson(formatted: string): string {
+  return escapeHtml(formatted).replace(
+    /("(?:\\u[0-9a-fA-F]{4}|\\[^u]|[^\\"])*"(?:\s*:)?|true|false|null|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g,
+    (match) => {
+      let color = '#f97583';
+      if (match.startsWith('"')) {
+        color = match.trimEnd().endsWith(':') ? '#79b8ff' : '#9ecbff';
+      }
+      return `<span style="color:${color}">${match}</span>`;
+    },
+  );
+}
+
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleString('en-US', {
     month: 'short',
@@ -1075,6 +1101,8 @@ export default function ChainDetailPage() {
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
               {logs.map((log) => {
                 const isNew = newLogIds.has(log.id);
+                const inputFmt = log.input !== null ? tryFormatJson(log.input) : null;
+                const outputFmt = log.output !== null ? tryFormatJson(log.output) : null;
                 return (
                 <Accordion
                   key={log.id}
@@ -1118,17 +1146,29 @@ export default function ChainDetailPage() {
                             <CallReceivedIcon sx={{ fontSize: '0.7rem' }} />
                             INPUT
                           </Box>
-                          <Typography
-                            component="pre"
-                            sx={{
-                              fontFamily: monoFontFamily, fontSize: '0.75rem',
-                              color: colors.fg.default, whiteSpace: 'pre-wrap',
-                              wordBreak: 'break-word', m: 0,
-                              borderLeft: '2px solid rgba(56, 139, 253, 0.35)', pl: 1.25,
-                            }}
-                          >
-                            {log.input}
-                          </Typography>
+                          {inputFmt?.isJson ? (
+                            <Box
+                              component="pre"
+                              sx={{
+                                fontFamily: monoFontFamily, fontSize: '0.75rem',
+                                whiteSpace: 'pre-wrap', wordBreak: 'break-word', m: 0,
+                                borderLeft: '2px solid rgba(56, 139, 253, 0.35)', pl: 1.25,
+                              }}
+                              dangerouslySetInnerHTML={{ __html: highlightJson(inputFmt.formatted) }}
+                            />
+                          ) : (
+                            <Typography
+                              component="pre"
+                              sx={{
+                                fontFamily: monoFontFamily, fontSize: '0.75rem',
+                                color: colors.fg.default, whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-word', m: 0,
+                                borderLeft: '2px solid rgba(56, 139, 253, 0.35)', pl: 1.25,
+                              }}
+                            >
+                              {log.input}
+                            </Typography>
+                          )}
                         </Box>
                       )}
                       {log.output !== null && (
@@ -1144,17 +1184,29 @@ export default function ChainDetailPage() {
                             <CallMadeIcon sx={{ fontSize: '0.7rem' }} />
                             OUTPUT
                           </Box>
-                          <Typography
-                            component="pre"
-                            sx={{
-                              fontFamily: monoFontFamily, fontSize: '0.75rem',
-                              color: colors.fg.default, whiteSpace: 'pre-wrap',
-                              wordBreak: 'break-word', m: 0,
-                              borderLeft: '2px solid rgba(63, 185, 80, 0.35)', pl: 1.25,
-                            }}
-                          >
-                            {log.output}
-                          </Typography>
+                          {outputFmt?.isJson ? (
+                            <Box
+                              component="pre"
+                              sx={{
+                                fontFamily: monoFontFamily, fontSize: '0.75rem',
+                                whiteSpace: 'pre-wrap', wordBreak: 'break-word', m: 0,
+                                borderLeft: '2px solid rgba(63, 185, 80, 0.35)', pl: 1.25,
+                              }}
+                              dangerouslySetInnerHTML={{ __html: highlightJson(outputFmt.formatted) }}
+                            />
+                          ) : (
+                            <Typography
+                              component="pre"
+                              sx={{
+                                fontFamily: monoFontFamily, fontSize: '0.75rem',
+                                color: colors.fg.default, whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-word', m: 0,
+                                borderLeft: '2px solid rgba(63, 185, 80, 0.35)', pl: 1.25,
+                              }}
+                            >
+                              {log.output}
+                            </Typography>
+                          )}
                         </Box>
                       )}
                     </AccordionDetails>
