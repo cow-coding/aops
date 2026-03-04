@@ -21,6 +21,10 @@ class ChainUpdate(BaseModel):
     show_in_flow: bool | None = None
 
 
+class ChainReorderRequest(BaseModel):
+    chain_ids: list[uuid.UUID] = Field(min_length=1)
+
+
 class ChainResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -30,6 +34,7 @@ class ChainResponse(BaseModel):
     description: str | None
     persona: str | None
     content: str
+    position: int
     show_in_flow: bool
     created_at: datetime
     updated_at: datetime

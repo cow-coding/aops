@@ -24,4 +24,7 @@ export const chainApi = {
 
   rollback: (agentId: string, chainId: string, versionId: string) =>
     api.post<Chain>(`/agents/${agentId}/chains/${chainId}/versions/${versionId}/rollback`),
+
+  reorder: (agentId: string, chainIds: string[]) =>
+    api.patch<void>(`/agents/${agentId}/chains/reorder`, { chain_ids: chainIds }),
 };

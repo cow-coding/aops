@@ -6,9 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import get_chain_reader_auth, get_current_user
 from app.core.database import get_db
 from app.models.user import User
-from app.schemas.agent import AgentCreate, AgentResponse, AgentShareRequest, AgentShareResponse, AgentUpdate
+from app.schemas.agent import AgentCreate, AgentResponse, AgentUpdate
 from app.services import agent as agent_service
-from app.services import group as group_service
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
@@ -81,48 +80,3 @@ async def delete_agent(
     if agent.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Only the owner can delete this agent.")
     await agent_service.delete_agent(db, agent)
-
-
-@router.post("/{agent_id}/share", response_model=AgentShareResponse, status_code=201)
-async def share_agent(
-    agent_id: uuid.UUID,
-    body: AgentShareRequest,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    agent = await agent_service.get_agent(db, agent_id)
-    if not agent:
-        raise HTTPException(status_code=404, detail="Agent not found.")
-    if agent.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Only the owner can share this agent.")
-
-    group = await group_service.get_group(db, body.group_id)
-    if not group:
-        raise HTTPException(status_code=404, detail="Group not found.")
-
-    existing = await agent_service.get_agent_group(db, agent_id, body.group_id)
-    if existing:
-        raise HTTPException(status_code=409, detail="Agent already shared with this group.")
-
-    await agent_service.share_agent_to_group(db, agent_id, body.group_id)
-    return AgentShareResponse(agent_id=agent_id, group_id=body.group_id)
-
-
-@router.delete("/{agent_id}/share/{group_id}", status_code=204)
-async def unshare_agent(
-    agent_id: uuid.UUID,
-    group_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    agent = await agent_service.get_agent(db, agent_id)
-    if not agent:
-        raise HTTPException(status_code=404, detail="Agent not found.")
-    if agent.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Only the owner can unshare this agent.")
-
-    agent_group = await agent_service.get_agent_group(db, agent_id, group_id)
-    if not agent_group:
-        raise HTTPException(status_code=404, detail="Sharing relationship not found.")
-
-    await agent_service.unshare_agent_from_group(db, agent_group)

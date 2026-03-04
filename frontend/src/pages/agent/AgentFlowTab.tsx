@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import { Box, Button, CircularProgress, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
@@ -29,15 +29,17 @@ interface FlowChainNodeData extends Record<string, unknown> {
   avgLatencyMs: number | null;
   unexecuted: boolean;
   onHide: (() => void) | null;
+  agentId: string;
 }
 
 type FlowChainNode = Node<FlowChainNodeData>;
 
 // ── ChainNode component ───────────────────────────────────────────────────────
 
-function ChainNode({ data, selected }: NodeProps<FlowChainNode>) {
+function ChainNode({ id, data, selected }: NodeProps<FlowChainNode>) {
   const theme = useTheme();
   const colors = theme.colors;
+  const navigate = useNavigate();
 
   const statsLabel = [
     data.callCount > 0 ? `${data.callCount} ${data.callCount === 1 ? 'call' : 'calls'}` : null,
@@ -48,6 +50,7 @@ function ChainNode({ data, selected }: NodeProps<FlowChainNode>) {
 
   return (
     <Box
+      onClick={() => navigate(`/agents/${data.agentId}/chains/${id}`)}
       sx={{
         width: 200,
         px: 1.5,
@@ -128,6 +131,7 @@ function buildNodes(
   chains: Chain[],
   flowData: ChainFlowData | null,
   onHideChain: ((chainId: string) => void) | null,
+  agentId: string,
 ): Node[] {
   const executedNames = new Set(flowData?.nodes.map((n) => n.chain_name) ?? []);
   const flowMap = new Map((flowData?.nodes ?? []).map((f) => [f.chain_name, f]));
@@ -167,6 +171,7 @@ function buildNodes(
         avgLatencyMs: entry?.avg_latency_ms ?? null,
         unexecuted: false,
         onHide: onHideChain ? () => onHideChain(c.id) : null,
+        agentId,
       } satisfies FlowChainNodeData,
     };
   });
@@ -181,6 +186,7 @@ function buildNodes(
       avgLatencyMs: null,
       unexecuted: true,
       onHide: onHideChain ? () => onHideChain(c.id) : null,
+      agentId,
     } satisfies FlowChainNodeData,
   }));
 
@@ -351,7 +357,7 @@ export default function AgentFlowTab() {
   const edgeStyle: React.CSSProperties = { stroke: colors.border.default };
   const labelStyle: React.CSSProperties = { fill: colors.fg.subtle, fontSize: '0.6875rem' };
 
-  const nodes = useMemo(() => buildNodes(flowChains, flowData, handleHideChain), [flowChains, flowData, handleHideChain]);
+  const nodes = useMemo(() => buildNodes(flowChains, flowData, handleHideChain, agent.id), [flowChains, flowData, handleHideChain, agent.id]);
   const edges = useMemo(() => buildEdges(flowChains, flowData, edgeStyle, labelStyle), [flowChains, flowData]);
 
   const hasNoChains = chains.length === 0;
@@ -376,7 +382,7 @@ export default function AgentFlowTab() {
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
-        fitView
+               fitView
         fitViewOptions={{ padding: 0.2 }}
         proOptions={{ hideAttribution: true }}
       >

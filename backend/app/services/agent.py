@@ -76,29 +76,3 @@ async def delete_agent(db: AsyncSession, agent: Agent) -> None:
     await db.commit()
 
 
-async def share_agent_to_group(
-    db: AsyncSession, agent_id: uuid.UUID, group_id: uuid.UUID
-) -> AgentGroup:
-    agent_group = AgentGroup(agent_id=agent_id, group_id=group_id)
-    db.add(agent_group)
-    await db.commit()
-    return agent_group
-
-
-async def unshare_agent_from_group(
-    db: AsyncSession, agent_group: AgentGroup
-) -> None:
-    await db.delete(agent_group)
-    await db.commit()
-
-
-async def get_agent_group(
-    db: AsyncSession, agent_id: uuid.UUID, group_id: uuid.UUID
-) -> AgentGroup | None:
-    result = await db.execute(
-        select(AgentGroup).where(
-            AgentGroup.agent_id == agent_id,
-            AgentGroup.group_id == group_id,
-        )
-    )
-    return result.scalar_one_or_none()

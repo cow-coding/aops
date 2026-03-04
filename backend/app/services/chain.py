@@ -20,7 +20,7 @@ async def _next_version_number(db: AsyncSession, chain_id: uuid.UUID) -> int:
 
 async def get_chains(db: AsyncSession, agent_id: uuid.UUID) -> list[Chain]:
     result = await db.execute(
-        select(Chain).where(Chain.agent_id == agent_id).order_by(Chain.created_at.desc())
+        select(Chain).where(Chain.agent_id == agent_id).order_by(Chain.position.asc())
     )
     return list(result.scalars().all())
 
@@ -98,4 +98,20 @@ async def rollback_chain(db: AsyncSession, chain: Chain, target_version: ChainVe
 
 async def delete_chain(db: AsyncSession, chain: Chain) -> None:
     await db.delete(chain)
+    await db.commit()
+
+
+async def reorder_chains(
+    db: AsyncSession, agent_id: uuid.UUID, chain_ids: list[uuid.UUID]
+) -> None:
+    result = await db.execute(
+        select(Chain).where(Chain.agent_id == agent_id)
+    )
+    chains_by_id = {c.id: c for c in result.scalars().all()}
+
+    for position, chain_id in enumerate(chain_ids):
+        chain = chains_by_id.get(chain_id)
+        if chain is not None:
+            chain.position = position
+
     await db.commit()

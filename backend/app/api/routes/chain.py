@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import get_chain_reader_auth, get_current_user
 from app.core.database import get_db
 from app.models.user import User
-from app.schemas.chain import ChainCreate, ChainResponse, ChainUpdate
+from app.schemas.chain import ChainCreate, ChainReorderRequest, ChainResponse, ChainUpdate
 from app.services import agent as agent_service
 from app.services import chain as chain_service
 
@@ -84,6 +84,17 @@ async def get_chain(
     if not chain or chain.agent_id != agent_id:
         raise HTTPException(status_code=404, detail="Chain not found")
     return chain
+
+
+@router.patch("/reorder", status_code=204)
+async def reorder_chains(
+    agent_id: uuid.UUID,
+    data: ChainReorderRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_owned_agent(agent_id, current_user, db)
+    await chain_service.reorder_chains(db, agent_id, data.chain_ids)
 
 
 @router.patch("/{chain_id}", response_model=ChainResponse)
