@@ -146,31 +146,17 @@ function RunDetailPanel({ detail, mode }: { detail: RunDetail; mode: 'dark' | 'l
   const theme = useTheme();
   const colors = theme.colors;
 
-  // Median latency for slow chain detection (skip if only 1 call)
-  const chainLatencies = detail.chain_calls
-    .filter((c) => c.latency_ms !== null)
-    .map((c) => c.latency_ms as number);
-  const medianLatency = (() => {
-    if (chainLatencies.length < 2) return null;
-    const sorted = [...chainLatencies].sort((a, b) => a - b);
-    const mid = Math.floor(sorted.length / 2);
-    return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-  })();
-  const isSlowChain = (latency: number | null) =>
-    medianLatency !== null && latency !== null && latency > medianLatency * 2;
-
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
       {detail.chain_calls.map((call) => {
         const inputFmt = call.input !== null ? tryFormatJson(call.input) : null;
         const outputFmt = call.output !== null ? tryFormatJson(call.output) : null;
         const hasIo = call.input !== null || call.output !== null;
-        const slowChain = isSlowChain(call.latency_ms);
         return (
           <Box
             key={call.id}
             sx={{
-              border: `1px solid ${slowChain ? 'rgba(210, 153, 34, 0.45)' : colors.border.muted}`,
+              border: `1px solid ${colors.border.muted}`,
               borderRadius: '6px',
               background: colors.canvas.elevated,
               overflow: 'hidden',
@@ -188,15 +174,12 @@ function RunDetailPanel({ detail, mode }: { detail: RunDetail; mode: 'dark' | 'l
                 {call.chain_name}
               </Box>
               {call.latency_ms !== null && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <Box sx={{
-                    px: 0.75, py: 0.125, borderRadius: '4px',
-                    border: `1px solid ${slowChain ? 'rgba(210, 153, 34, 0.45)' : colors.border.muted}`,
-                    fontSize: '0.6875rem', color: slowChain ? '#ff7b72' : colors.fg.subtle,
-                  }}>
-                    {call.latency_ms}ms
-                  </Box>
-                  {slowChain && <WarningAmberOutlinedIcon sx={{ fontSize: 12, color: '#ff7b72' }} />}
+                <Box sx={{
+                  px: 0.75, py: 0.125, borderRadius: '4px',
+                  border: `1px solid ${colors.border.muted}`,
+                  fontSize: '0.6875rem', color: colors.fg.subtle,
+                }}>
+                  {call.latency_ms}ms
                 </Box>
               )}
               <Typography sx={{ fontSize: '0.6875rem', color: colors.fg.subtle, ml: 'auto' }}>
