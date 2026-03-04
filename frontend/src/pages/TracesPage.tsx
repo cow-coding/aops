@@ -5,6 +5,7 @@ import {
   AccordionSummary,
   Alert,
   Box,
+  Button,
   CircularProgress,
   Divider,
   MenuItem,
@@ -15,9 +16,11 @@ import {
   Typography,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
+import { useNavigate } from 'react-router-dom';
 import CallMadeIcon from '@mui/icons-material/CallMade';
 import CallReceivedIcon from '@mui/icons-material/CallReceived';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import NorthEastIcon from '@mui/icons-material/NorthEast';
 import TimelineOutlinedIcon from '@mui/icons-material/TimelineOutlined';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import type { Agent } from '../types/agent';
@@ -288,6 +291,7 @@ function RunRow({
 }) {
   const theme = useTheme();
   const colors = theme.colors;
+  const navigate = useNavigate();
   const dotColor = agentDotColor(run.agent_id);
 
   return (
@@ -312,9 +316,25 @@ function RunRow({
           {/* Agent col */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, width: 140, flexShrink: 0 }}>
             <Box sx={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
-            <Typography sx={{ fontSize: '0.8125rem', color: colors.fg.default, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <Box
+              component="span"
+              onClick={(e) => { e.stopPropagation(); navigate(`/agents/${run.agent_id}`); }}
+              sx={{
+                display: 'inline-flex', alignItems: 'center', gap: 0.4,
+                cursor: 'pointer', color: colors.fg.default, fontWeight: 500,
+                fontSize: '0.8125rem', borderRadius: '4px', px: 0.25,
+                transition: 'color 0.15s',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                '&:hover': { color: '#8B92E8' },
+                '&:hover .agent-link-icon': { opacity: 1 },
+              }}
+            >
               {run.agent_name}
-            </Typography>
+              <NorthEastIcon
+                className="agent-link-icon"
+                sx={{ fontSize: '0.65rem', opacity: 0, transition: 'opacity 0.15s', color: '#8B92E8', flexShrink: 0 }}
+              />
+            </Box>
           </Box>
           {/* Started col */}
           <Typography sx={{ fontSize: '0.75rem', color: colors.fg.muted, width: 160, flexShrink: 0 }}>
@@ -338,7 +358,23 @@ function RunRow({
         </Box>
       </AccordionSummary>
       <AccordionDetails sx={{ px: 2, pt: 0, pb: 2 }}>
-        <Divider sx={{ mb: 2 }} />
+        <Divider sx={{ mb: 1 }} />
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1.5 }}>
+          <Button
+            size="small"
+            endIcon={<NorthEastIcon sx={{ fontSize: '0.7rem !important' }} />}
+            onClick={(e) => { e.stopPropagation(); navigate(`/agents/${run.agent_id}`); }}
+            sx={{
+              fontSize: '0.6875rem',
+              color: '#8B92E8',
+              px: 1, py: 0.25,
+              minHeight: 'unset',
+              '&:hover': { backgroundColor: 'rgba(139,146,232,0.08)' },
+            }}
+          >
+            View Agent
+          </Button>
+        </Box>
         {detailLoading && (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
             <CircularProgress size={24} />
