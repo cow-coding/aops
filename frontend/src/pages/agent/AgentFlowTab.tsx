@@ -326,6 +326,7 @@ export default function AgentFlowTab() {
   const { agent, chains, setChains } = useOutletContext<AgentDetailContext>();
   const theme = useTheme();
   const colors = theme.colors;
+  const isDark = theme.palette.mode === 'dark';
 
   const [flowData, setFlowData] = useState<ChainFlowData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -377,7 +378,23 @@ export default function AgentFlowTab() {
   }
 
   return (
-    <Box sx={{ height: 'min(560px, calc(100vh - 300px))', position: 'relative' }}>
+    <Box sx={{
+      height: 'min(560px, calc(100vh - 300px))',
+      position: 'relative',
+      ...(isDark && {
+        '& .react-flow__controls-button': {
+          background: colors.canvas.overlay,
+          borderBottom: `1px solid ${colors.border.default}`,
+          fill: colors.fg.muted,
+        },
+        '& .react-flow__controls-button:hover': {
+          background: colors.canvas.subtle,
+        },
+        '& .react-flow__controls-button svg': {
+          fill: colors.fg.muted,
+        },
+      }),
+    }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
