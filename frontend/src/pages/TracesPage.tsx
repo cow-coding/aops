@@ -460,11 +460,16 @@ export default function TracesPage() {
 
   // Computed stats
   const validDurations = runs.filter((r) => r.duration_ms !== null).map((r) => r.duration_ms as number);
-  const avgDuration = validDurations.length > 0
-    ? validDurations.reduce((a, b) => a + b, 0) / validDurations.length
-    : null;
-  const slowCount = avgDuration !== null
-    ? runs.filter((r) => r.duration_ms !== null && r.duration_ms > avgDuration * 2).length
+  const medianDuration = (() => {
+    if (validDurations.length === 0) return null;
+    const sorted = [...validDurations].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 !== 0
+      ? sorted[mid]
+      : (sorted[mid - 1] + sorted[mid]) / 2;
+  })();
+  const slowCount = medianDuration !== null
+    ? runs.filter((r) => r.duration_ms !== null && r.duration_ms > medianDuration * 2).length
     : 0;
 
   const handleToggleRun = useCallback((runId: string) => {
@@ -526,11 +531,11 @@ export default function TracesPage() {
           <Typography sx={{ fontSize: '0.75rem', color: colors.fg.muted }}>
             {runs.length} runs
           </Typography>
-          {avgDuration !== null && (
+          {medianDuration !== null && (
             <>
               <Typography sx={{ fontSize: '0.75rem', color: colors.fg.subtle }}>·</Typography>
               <Typography sx={{ fontSize: '0.75rem', color: colors.fg.muted }}>
-                avg {formatDuration(Math.round(avgDuration))}
+                median {formatDuration(Math.round(medianDuration))}
               </Typography>
             </>
           )}
@@ -624,7 +629,7 @@ export default function TracesPage() {
               detailError={detailError[run.id] ?? null}
               onToggle={() => handleToggleRun(run.id)}
               mode={mode}
-              isSlow={avgDuration !== null && run.duration_ms !== null && run.duration_ms > avgDuration * 2}
+              isSlow={medianDuration !== null && run.duration_ms !== null && run.duration_ms > medianDuration * 2}
             />
           ))}
         </Box>
