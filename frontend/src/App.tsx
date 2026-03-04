@@ -12,6 +12,7 @@ import AgentSettingsTab from './pages/agent/AgentSettingsTab';
 import ChainCreatePage from './pages/ChainCreatePage';
 import ChainDetailPage from './pages/ChainDetailPage';
 import GroupsPage from './pages/GroupsPage';
+import TracesPage from './pages/TracesPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import { Box, CircularProgress } from '@mui/material';
@@ -66,6 +67,7 @@ export default function App() {
         <Route path="/agents/:id/chains/:chainId" element={<ChainDetailPage />} />
 
         <Route path="/groups" element={<GroupsPage />} />
+        <Route path="/traces" element={<TracesPage />} />
       </Route>
     </Routes>
   );

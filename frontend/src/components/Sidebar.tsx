@@ -69,6 +69,7 @@ export default function Sidebar() {
 
   const isAgentsActive = location.pathname.startsWith('/agents');
   const isGroupsActive = location.pathname.startsWith('/groups');
+  const isTracesActive = location.pathname.startsWith('/traces');
 
   const handleLogout = async () => {
     await logout();
@@ -129,6 +130,13 @@ export default function Sidebar() {
           onClick={() => navigate('/groups')}
         />
 
+        <NavItem
+          icon={<TimelineOutlinedIcon sx={{ fontSize: 16 }} />}
+          label="Traces"
+          active={isTracesActive}
+          onClick={() => navigate('/traces')}
+        />
+
         <Typography
           sx={{
             px: 1.5,
@@ -147,11 +155,6 @@ export default function Sidebar() {
         <NavItem
           icon={<MonitorHeartOutlinedIcon sx={{ fontSize: 16 }} />}
           label="Monitoring"
-          disabled
-        />
-        <NavItem
-          icon={<TimelineOutlinedIcon sx={{ fontSize: 16 }} />}
-          label="Traces"
           disabled
         />
         <NavItem

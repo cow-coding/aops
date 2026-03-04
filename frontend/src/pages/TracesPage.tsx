@@ -1,0 +1,518 @@
+import { useCallback, useEffect, useState } from 'react';
+import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
+  Alert,
+  Box,
+  CircularProgress,
+  Divider,
+  MenuItem,
+  Pagination,
+  Select,
+  ToggleButton,
+  ToggleButtonGroup,
+  Typography,
+} from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import CallMadeIcon from '@mui/icons-material/CallMade';
+import CallReceivedIcon from '@mui/icons-material/CallReceived';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import TimelineOutlinedIcon from '@mui/icons-material/TimelineOutlined';
+import type { Agent } from '../types/agent';
+import type { RunSummary, RunDetail } from '../types/run';
+import { agentApi } from '../services/agentApi';
+import { runsApi } from '../services/runsApi';
+import { monoFontFamily } from '../theme';
+
+// ── JSON highlight (same as ChainDetailPage) ──────────────────────────────────
+
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function tryFormatJson(text: string): { formatted: string; isJson: boolean } {
+  try {
+    const parsed = JSON.parse(text);
+    return { formatted: JSON.stringify(parsed, null, 2), isJson: true };
+  } catch {
+    return { formatted: text, isJson: false };
+  }
+}
+
+const JSON_HIGHLIGHT_PALETTE: Record<'dark' | 'light', {
+  key: string; string: string; number: string; boolean: string; null: string; punctuation: string;
+}> = {
+  dark: { key: '#d2a8ff', string: '#a5d6ff', number: '#79c0ff', boolean: '#ff7b72', null: '#8b949e', punctuation: '#656d76' },
+  light: { key: '#953800', string: '#0a3069', number: '#0550ae', boolean: '#cf222e', null: '#6e7781', punctuation: '#57606a' },
+};
+
+function highlightJson(formatted: string, mode: 'dark' | 'light' = 'dark'): string {
+  const p = JSON_HIGHLIGHT_PALETTE[mode];
+  return escapeHtml(formatted).replace(
+    /("(?:\\u[0-9a-fA-F]{4}|\\[^u]|[^\\"])*"(?:\s*:)?|true|false|null|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?|[{}[\],:])/g,
+    (match) => {
+      let color: string;
+      if (match.startsWith('"')) {
+        color = match.trimEnd().endsWith(':') ? p.key : p.string;
+      } else if (match === 'true' || match === 'false') {
+        color = p.boolean;
+      } else if (match === 'null') {
+        color = p.null;
+      } else if (/^-?\d/.test(match)) {
+        color = p.number;
+      } else {
+        color = p.punctuation;
+      }
+      return `<span style="color:${color}">${match}</span>`;
+    },
+  );
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+
+const AGENT_DOT_COLORS = ['#58a6ff', '#3fb950', '#f78166', '#d2a8ff', '#ffa657', '#79c0ff', '#56d364', '#ff7b72'];
+
+function agentDotColor(agentId: string): string {
+  let hash = 0;
+  for (const ch of agentId) hash = ((hash * 31) + ch.charCodeAt(0)) >>> 0;
+  return AGENT_DOT_COLORS[hash % AGENT_DOT_COLORS.length];
+}
+
+function formatDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+    hour: 'numeric', minute: '2-digit',
+  });
+}
+
+function formatDuration(ms: number | null): string {
+  if (ms === null) return '—';
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+type TimeRange = '1h' | '24h' | '7d';
+
+function timeRangeToAfter(range: TimeRange): string {
+  const now = Date.now();
+  const offsets: Record<TimeRange, number> = { '1h': 3600000, '24h': 86400000, '7d': 604800000 };
+  return new Date(now - offsets[range]).toISOString();
+}
+
+const PAGE_SIZE = 50;
+
+// ── Chain flow chips ──────────────────────────────────────────────────────────
+
+function ChainFlowChips({ names }: { names: string[] }) {
+  const theme = useTheme();
+  const colors = theme.colors;
+  const visible = names.slice(0, 3);
+  const extra = names.length - 3;
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+      {visible.map((name) => (
+        <Box
+          key={name}
+          sx={{
+            px: 0.75, py: 0.125,
+            borderRadius: '4px',
+            border: `1px solid ${colors.border.default}`,
+            background: colors.canvas.elevated,
+            fontSize: '0.6875rem',
+            color: colors.fg.muted,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {name}
+        </Box>
+      ))}
+      {extra > 0 && (
+        <Typography sx={{ fontSize: '0.6875rem', color: colors.fg.subtle }}>
+          +{extra}
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
+// ── Run detail accordion content ──────────────────────────────────────────────
+
+function RunDetailPanel({ detail, mode }: { detail: RunDetail; mode: 'dark' | 'light' }) {
+  const theme = useTheme();
+  const colors = theme.colors;
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      {detail.chain_calls.map((call) => {
+        const inputFmt = call.input !== null ? tryFormatJson(call.input) : null;
+        const outputFmt = call.output !== null ? tryFormatJson(call.output) : null;
+        const hasIo = call.input !== null || call.output !== null;
+        return (
+          <Box
+            key={call.id}
+            sx={{
+              border: `1px solid ${colors.border.muted}`,
+              borderRadius: '6px',
+              background: colors.canvas.elevated,
+              overflow: 'hidden',
+            }}
+          >
+            {/* Header */}
+            <Box sx={{ px: 2, py: 1, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Box sx={{
+                px: 0.75, py: 0.25, borderRadius: '4px',
+                border: `1px solid ${colors.border.default}`,
+                background: colors.canvas.subtle,
+                fontSize: '0.6875rem', fontWeight: 600,
+                color: colors.accent.fg, whiteSpace: 'nowrap',
+              }}>
+                {call.chain_name}
+              </Box>
+              {call.latency_ms !== null && (
+                <Box sx={{
+                  px: 0.75, py: 0.125, borderRadius: '4px',
+                  border: `1px solid ${colors.border.muted}`,
+                  fontSize: '0.6875rem', color: colors.fg.subtle,
+                }}>
+                  {call.latency_ms}ms
+                </Box>
+              )}
+              <Typography sx={{ fontSize: '0.6875rem', color: colors.fg.subtle, ml: 'auto' }}>
+                {formatDate(call.called_at)}
+              </Typography>
+            </Box>
+
+            {/* INPUT / OUTPUT */}
+            {hasIo && (
+              <>
+                <Divider />
+                <Box sx={{ px: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                  {call.input !== null && (
+                    <Box sx={{ mb: call.output !== null ? 0 : undefined }}>
+                      <Box sx={{
+                        display: 'inline-flex', alignItems: 'center', gap: 0.5,
+                        px: 0.75, py: 0.25, mb: 0.75, borderRadius: '4px',
+                        backgroundColor: 'rgba(56, 139, 253, 0.12)',
+                        border: '1px solid rgba(56, 139, 253, 0.3)',
+                        color: '#58a6ff', fontSize: '0.625rem', fontWeight: 700,
+                        letterSpacing: '0.08em', lineHeight: 1.4, textTransform: 'uppercase',
+                      }}>
+                        <CallReceivedIcon sx={{ fontSize: '0.7rem' }} />
+                        INPUT
+                      </Box>
+                      {inputFmt?.isJson ? (
+                        <Box component="pre" sx={{
+                          fontFamily: monoFontFamily, fontSize: '0.75rem',
+                          whiteSpace: 'pre-wrap', wordBreak: 'break-word', m: 0,
+                          borderLeft: '2px solid rgba(56, 139, 253, 0.35)', pl: 1.25,
+                        }}
+                          dangerouslySetInnerHTML={{ __html: highlightJson(inputFmt.formatted, mode) }}
+                        />
+                      ) : (
+                        <Typography component="pre" sx={{
+                          fontFamily: monoFontFamily, fontSize: '0.75rem',
+                          color: colors.fg.default, whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word', m: 0,
+                          borderLeft: '2px solid rgba(56, 139, 253, 0.35)', pl: 1.25,
+                        }}>
+                          {call.input}
+                        </Typography>
+                      )}
+                    </Box>
+                  )}
+                  {call.output !== null && (
+                    <Box>
+                      <Box sx={{
+                        display: 'inline-flex', alignItems: 'center', gap: 0.5,
+                        px: 0.75, py: 0.25, mb: 0.75, borderRadius: '4px',
+                        backgroundColor: 'rgba(63, 185, 80, 0.12)',
+                        border: '1px solid rgba(63, 185, 80, 0.3)',
+                        color: '#3fb950', fontSize: '0.625rem', fontWeight: 700,
+                        letterSpacing: '0.08em', lineHeight: 1.4, textTransform: 'uppercase',
+                      }}>
+                        <CallMadeIcon sx={{ fontSize: '0.7rem' }} />
+                        OUTPUT
+                      </Box>
+                      {outputFmt?.isJson ? (
+                        <Box component="pre" sx={{
+                          fontFamily: monoFontFamily, fontSize: '0.75rem',
+                          whiteSpace: 'pre-wrap', wordBreak: 'break-word', m: 0,
+                          borderLeft: '2px solid rgba(63, 185, 80, 0.35)', pl: 1.25,
+                        }}
+                          dangerouslySetInnerHTML={{ __html: highlightJson(outputFmt.formatted, mode) }}
+                        />
+                      ) : (
+                        <Typography component="pre" sx={{
+                          fontFamily: monoFontFamily, fontSize: '0.75rem',
+                          color: colors.fg.default, whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word', m: 0,
+                          borderLeft: '2px solid rgba(63, 185, 80, 0.35)', pl: 1.25,
+                        }}>
+                          {call.output}
+                        </Typography>
+                      )}
+                    </Box>
+                  )}
+                </Box>
+              </>
+            )}
+          </Box>
+        );
+      })}
+    </Box>
+  );
+}
+
+// ── Run row ───────────────────────────────────────────────────────────────────
+
+function RunRow({
+  run,
+  expanded,
+  detail,
+  detailLoading,
+  detailError,
+  onToggle,
+  mode,
+}: {
+  run: RunSummary;
+  expanded: boolean;
+  detail: RunDetail | null;
+  detailLoading: boolean;
+  detailError: string | null;
+  onToggle: () => void;
+  mode: 'dark' | 'light';
+}) {
+  const theme = useTheme();
+  const colors = theme.colors;
+  const dotColor = agentDotColor(run.agent_id);
+
+  return (
+    <Accordion
+      disableGutters
+      elevation={0}
+      expanded={expanded}
+      onChange={onToggle}
+      sx={{
+        border: `1px solid ${colors.border.muted}`,
+        borderRadius: '8px !important',
+        background: colors.canvas.subtle,
+        '&:before': { display: 'none' },
+        '&.Mui-expanded': { borderColor: colors.border.default },
+      }}
+    >
+      <AccordionSummary
+        expandIcon={<ExpandMoreIcon sx={{ fontSize: 16, color: colors.fg.subtle }} />}
+        sx={{ minHeight: 52, px: 2, '& .MuiAccordionSummary-content': { my: 0 } }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%', mr: 1 }}>
+          {/* Agent col */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, width: 140, flexShrink: 0 }}>
+            <Box sx={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+            <Typography sx={{ fontSize: '0.8125rem', color: colors.fg.default, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {run.agent_name}
+            </Typography>
+          </Box>
+          {/* Started col */}
+          <Typography sx={{ fontSize: '0.75rem', color: colors.fg.muted, width: 160, flexShrink: 0 }}>
+            {formatDate(run.started_at)}
+          </Typography>
+          {/* Duration col */}
+          <Typography sx={{ fontSize: '0.75rem', color: colors.fg.subtle, width: 72, flexShrink: 0 }}>
+            {formatDuration(run.duration_ms)}
+          </Typography>
+          {/* Calls col */}
+          <Typography sx={{ fontSize: '0.75rem', color: colors.fg.subtle, width: 48, flexShrink: 0 }}>
+            {run.chain_names.length}
+          </Typography>
+          {/* Chain flow col */}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <ChainFlowChips names={run.chain_names} />
+          </Box>
+        </Box>
+      </AccordionSummary>
+      <AccordionDetails sx={{ px: 2, pt: 0, pb: 2 }}>
+        <Divider sx={{ mb: 2 }} />
+        {detailLoading && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+            <CircularProgress size={24} />
+          </Box>
+        )}
+        {detailError && <Alert severity="error">{detailError}</Alert>}
+        {detail && <RunDetailPanel detail={detail} mode={mode} />}
+      </AccordionDetails>
+    </Accordion>
+  );
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+
+export default function TracesPage() {
+  const theme = useTheme();
+  const colors = theme.colors;
+  const mode = theme.palette.mode;
+
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [selectedAgentId, setSelectedAgentId] = useState<string>('');
+  const [timeRange, setTimeRange] = useState<TimeRange>('24h');
+  const [runs, setRuns] = useState<RunSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
+  const [details, setDetails] = useState<Record<string, RunDetail>>({});
+  const [detailLoading, setDetailLoading] = useState<Record<string, boolean>>({});
+  const [detailError, setDetailError] = useState<Record<string, string>>({});
+
+  // Load agents once
+  useEffect(() => {
+    agentApi.list().then(setAgents).catch(() => {});
+  }, []);
+
+  const loadRuns = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    runsApi.list({
+      agent_id: selectedAgentId || undefined,
+      started_after: timeRangeToAfter(timeRange),
+      limit: PAGE_SIZE,
+      offset: (page - 1) * PAGE_SIZE,
+    })
+      .then((data) => {
+        setRuns(data);
+        setTotalPages(data.length === PAGE_SIZE ? page + 1 : page);
+      })
+      .catch((err: Error) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [selectedAgentId, timeRange, page]);
+
+  useEffect(() => { loadRuns(); }, [loadRuns]);
+
+  // Reset page when filters change
+  useEffect(() => { setPage(1); }, [selectedAgentId, timeRange]);
+
+  const handleToggleRun = useCallback((runId: string) => {
+    if (expandedRunId === runId) {
+      setExpandedRunId(null);
+      return;
+    }
+    setExpandedRunId(runId);
+    if (details[runId] || detailLoading[runId]) return;
+    setDetailLoading((prev) => ({ ...prev, [runId]: true }));
+    runsApi.getDetail(runId)
+      .then((d) => setDetails((prev) => ({ ...prev, [runId]: d })))
+      .catch((err: Error) => setDetailError((prev) => ({ ...prev, [runId]: err.message })))
+      .finally(() => setDetailLoading((prev) => ({ ...prev, [runId]: false })));
+  }, [expandedRunId, details, detailLoading]);
+
+  return (
+    <Box>
+      {/* Header */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+        <TimelineOutlinedIcon sx={{ fontSize: 20, color: colors.fg.subtle }} />
+        <Typography variant="h2">Traces</Typography>
+      </Box>
+
+      {/* Filter bar */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2.5 }}>
+        <Select
+          size="small"
+          value={selectedAgentId}
+          onChange={(e) => setSelectedAgentId(e.target.value)}
+          displayEmpty
+          sx={{ minWidth: 180, fontSize: '0.8125rem' }}
+        >
+          <MenuItem value="">All Agents</MenuItem>
+          {agents.map((a) => (
+            <MenuItem key={a.id} value={a.id} sx={{ fontSize: '0.8125rem' }}>
+              {a.name}
+            </MenuItem>
+          ))}
+        </Select>
+
+        <ToggleButtonGroup
+          size="small"
+          value={timeRange}
+          exclusive
+          onChange={(_, v) => { if (v) setTimeRange(v as TimeRange); }}
+        >
+          {(['1h', '24h', '7d'] as TimeRange[]).map((r) => (
+            <ToggleButton key={r} value={r} sx={{ fontSize: '0.75rem', px: 1.5, textTransform: 'none' }}>
+              Last {r}
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
+      </Box>
+
+      {/* Table header */}
+      <Box sx={{
+        display: 'flex', alignItems: 'center', gap: 2,
+        px: 2, pb: 0.75, mb: 0.5,
+        borderBottom: `1px solid ${colors.border.muted}`,
+      }}>
+        {[
+          { label: 'Agent', width: 140 },
+          { label: 'Started', width: 160 },
+          { label: 'Duration', width: 72 },
+          { label: 'Calls', width: 48 },
+          { label: 'Chain Flow', flex: 1 },
+        ].map(({ label, width, flex }) => (
+          <Typography
+            key={label}
+            sx={{ fontSize: '0.6875rem', fontWeight: 600, color: colors.fg.subtle,
+              letterSpacing: '0.06em', textTransform: 'uppercase',
+              width: width ?? undefined, flex: flex ?? undefined, flexShrink: 0 }}
+          >
+            {label}
+          </Typography>
+        ))}
+        {/* spacer for expand icon */}
+        <Box sx={{ width: 28, flexShrink: 0 }} />
+      </Box>
+
+      {/* Runs list */}
+      {loading && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+          <CircularProgress size={32} />
+        </Box>
+      )}
+      {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+      {!loading && !error && runs.length === 0 && (
+        <Box sx={{ py: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+          <TimelineOutlinedIcon sx={{ fontSize: 40, color: colors.fg.subtle }} />
+          <Typography variant="body1" sx={{ color: colors.fg.muted }}>No runs in this time range.</Typography>
+        </Box>
+      )}
+      {!loading && !error && runs.length > 0 && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, mt: 0.5 }}>
+          {runs.map((run) => (
+            <RunRow
+              key={run.id}
+              run={run}
+              expanded={expandedRunId === run.id}
+              detail={details[run.id] ?? null}
+              detailLoading={detailLoading[run.id] ?? false}
+              detailError={detailError[run.id] ?? null}
+              onToggle={() => handleToggleRun(run.id)}
+              mode={mode}
+            />
+          ))}
+        </Box>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+          <Pagination
+            count={totalPages}
+            page={page}
+            onChange={(_, v) => setPage(v)}
+            size="small"
+          />
+        </Box>
+      )}
+    </Box>
+  );
+}
