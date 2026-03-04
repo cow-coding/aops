@@ -1,13 +1,13 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_chain_reader_auth, get_current_user
 from app.core.database import get_db
 from app.models.user import User
-from app.schemas.chain import ChainCreate, ChainReorderRequest, ChainResponse, ChainUpdate
+from app.schemas.chain import ChainCallLogResponse, ChainCreate, ChainReorderRequest, ChainResponse, ChainStatsResponse, ChainUpdate
 from app.services import agent as agent_service
 from app.services import chain as chain_service
 
@@ -84,6 +84,36 @@ async def get_chain(
     if not chain or chain.agent_id != agent_id:
         raise HTTPException(status_code=404, detail="Chain not found")
     return chain
+
+
+@router.get("/{chain_id}/stats", response_model=ChainStatsResponse)
+async def get_chain_stats(
+    agent_id: uuid.UUID,
+    chain_id: uuid.UUID,
+    auth: User | uuid.UUID = Depends(get_chain_reader_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_readable_agent(agent_id, auth, db)
+    chain = await chain_service.get_chain(db, chain_id)
+    if not chain or chain.agent_id != agent_id:
+        raise HTTPException(status_code=404, detail="Chain not found")
+    return await chain_service.get_chain_stats(db, chain_id)
+
+
+@router.get("/{chain_id}/logs", response_model=list[ChainCallLogResponse])
+async def get_chain_logs(
+    agent_id: uuid.UUID,
+    chain_id: uuid.UUID,
+    limit: int = Query(default=50, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    auth: User | uuid.UUID = Depends(get_chain_reader_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_readable_agent(agent_id, auth, db)
+    chain = await chain_service.get_chain(db, chain_id)
+    if not chain or chain.agent_id != agent_id:
+        raise HTTPException(status_code=404, detail="Chain not found")
+    return await chain_service.get_chain_logs(db, chain_id, limit, offset)
 
 
 @router.patch("/reorder", status_code=204)

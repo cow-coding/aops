@@ -27,6 +27,24 @@ export interface ChainUpdateRequest {
   show_in_flow?: boolean;
 }
 
+export interface ChainStats {
+  total_calls: number;
+  runs_appeared_in: number;
+  avg_latency_ms: number | null;
+  p95_latency_ms: number | null;
+  last_called_at: string | null;
+}
+
+export interface ChainLog {
+  id: string;
+  run_id: string;
+  call_order: number;
+  latency_ms: number | null;
+  called_at: string;
+  input: string | null;
+  output: string | null;
+}
+
 export interface ChainVersion {
   id: string;
   chain_id: string;

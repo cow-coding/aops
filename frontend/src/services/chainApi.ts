@@ -1,5 +1,5 @@
 import { api } from './api';
-import type { Chain, ChainCreateRequest, ChainUpdateRequest, ChainVersion } from '../types/chain';
+import type { Chain, ChainCreateRequest, ChainUpdateRequest, ChainVersion, ChainStats, ChainLog } from '../types/chain';
 
 export const chainApi = {
   list: (agentId: string) => api.get<Chain[]>(`/agents/${agentId}/chains/`),
@@ -27,4 +27,15 @@ export const chainApi = {
 
   reorder: (agentId: string, chainIds: string[]) =>
     api.patch<void>(`/agents/${agentId}/chains/reorder`, { chain_ids: chainIds }),
+
+  getStats: (agentId: string, chainId: string) =>
+    api.get<ChainStats>(`/agents/${agentId}/chains/${chainId}/stats`),
+
+  getLogs: (agentId: string, chainId: string, params?: { limit?: number; offset?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.limit !== undefined) qs.set('limit', String(params.limit));
+    if (params?.offset !== undefined) qs.set('offset', String(params.offset));
+    const query = qs.toString() ? `?${qs.toString()}` : '';
+    return api.get<ChainLog[]>(`/agents/${agentId}/chains/${chainId}/logs${query}`);
+  },
 };

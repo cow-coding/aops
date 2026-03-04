@@ -21,6 +21,26 @@ class ChainUpdate(BaseModel):
     show_in_flow: bool | None = None
 
 
+class ChainStatsResponse(BaseModel):
+    total_calls: int
+    runs_appeared_in: int
+    avg_latency_ms: float | None
+    p95_latency_ms: float | None
+    last_called_at: datetime | None
+
+
+class ChainCallLogResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    run_id: uuid.UUID
+    call_order: int
+    latency_ms: int | None
+    called_at: datetime
+    input: str | None
+    output: str | None
+
+
 class ChainReorderRequest(BaseModel):
     chain_ids: list[uuid.UUID] = Field(min_length=1)
 

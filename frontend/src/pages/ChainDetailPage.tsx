@@ -1,9 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { diffLines } from 'diff';
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
   Box,
   Button,
@@ -30,8 +33,9 @@ import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import RestoreOutlinedIcon from '@mui/icons-material/RestoreOutlined';
 import CodeOutlinedIcon from '@mui/icons-material/CodeOutlined';
 import DifferenceOutlinedIcon from '@mui/icons-material/DifferenceOutlined';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import type { Agent } from '../types/agent';
-import type { Chain, ChainUpdateRequest, ChainVersion } from '../types/chain';
+import type { Chain, ChainUpdateRequest, ChainVersion, ChainStats, ChainLog } from '../types/chain';
 import { agentApi } from '../services/agentApi';
 import { chainApi } from '../services/chainApi';
 import { monoFontFamily } from '../theme';
@@ -474,6 +478,34 @@ export default function ChainDetailPage() {
 
   const [showInFlowSaving, setShowInFlowSaving] = useState(false);
 
+  const [stats, setStats] = useState<ChainStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [statsError, setStatsError] = useState<string | null>(null);
+
+  const [logs, setLogs] = useState<ChainLog[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logsError, setLogsError] = useState<string | null>(null);
+
+  const loadStats = useCallback(() => {
+    if (!agentId || !chainId) return;
+    setStatsLoading(true);
+    setStatsError(null);
+    chainApi.getStats(agentId, chainId)
+      .then(setStats)
+      .catch((err: Error) => setStatsError(err.message))
+      .finally(() => setStatsLoading(false));
+  }, [agentId, chainId]);
+
+  const loadLogs = useCallback(() => {
+    if (!agentId || !chainId) return;
+    setLogsLoading(true);
+    setLogsError(null);
+    chainApi.getLogs(agentId, chainId, { limit: 100 })
+      .then(setLogs)
+      .catch((err: Error) => setLogsError(err.message))
+      .finally(() => setLogsLoading(false));
+  }, [agentId, chainId]);
+
   const loadData = () => {
     if (!agentId || !chainId) return;
     return Promise.all([
@@ -729,9 +761,19 @@ export default function ChainDetailPage() {
           mb: 3,
         }}
       >
-        <Tabs value={activeTab} onChange={(_, v) => { setActiveTab(v); setEditing(false); setForm({}); setSaveError(null); }}>
+        <Tabs value={activeTab} onChange={(_, v) => {
+          setActiveTab(v);
+          setEditing(false);
+          setForm({});
+          setSaveError(null);
+          if (v === 2 && !stats && !statsLoading) loadStats();
+          if (v === 3 && logs.length === 0 && !logsLoading) loadLogs();
+        }}>
           <Tab label="Prompt" />
           <Tab label="History" />
+          <Tab label="Stats" />
+          <Tab label="Logs" />
+          <Tab label="Settings" />
         </Tabs>
         {activeTab === 0 && !editing && (
           <Box sx={{ ml: 'auto', pb: 0.5 }}>
@@ -912,34 +954,176 @@ export default function ChainDetailPage() {
         </Box>
       )}
 
-      {/* ── Settings section ── */}
-      <Box sx={{ mt: 4, pt: 3, borderTop: `1px solid ${colors.border.muted}` }}>
-        <Typography variant="body2" sx={{ fontWeight: 600, mb: 2, color: colors.fg.muted }}>
-          Settings
-        </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box>
-            <Typography variant="body2" sx={{ fontWeight: 500 }}>
-              Show in Flow
+      {/* ── Stats tab ── */}
+      {activeTab === 2 && (
+        <Box>
+          {statsLoading && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+              <CircularProgress size={28} />
+            </Box>
+          )}
+          {statsError && <Alert severity="error">{statsError}</Alert>}
+          {!statsLoading && !statsError && stats && stats.total_calls === 0 && (
+            <Typography variant="body1" sx={{ color: colors.fg.subtle, py: 6, textAlign: 'center' }}>
+              No run data yet.
             </Typography>
-            <Typography variant="caption" sx={{ color: colors.fg.muted }}>
-              Include this chain in the agent's flow visualization.
-            </Typography>
-          </Box>
-          <FormControlLabel
-            control={
-              <Switch
-                checked={chain.show_in_flow}
-                onChange={handleToggleShowInFlow}
-                disabled={showInFlowSaving}
-                size="small"
-              />
-            }
-            label=""
-            sx={{ m: 0 }}
-          />
+          )}
+          {!statsLoading && !statsError && stats && stats.total_calls > 0 && (
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 2 }}>
+              {[
+                { label: 'Total Calls', value: stats.total_calls.toLocaleString() },
+                { label: 'Runs Appeared In', value: stats.runs_appeared_in.toLocaleString() },
+                { label: 'Avg Latency', value: stats.avg_latency_ms !== null ? `${Math.round(stats.avg_latency_ms)}ms` : '—' },
+                { label: 'p95 Latency', value: stats.p95_latency_ms !== null ? `${Math.round(stats.p95_latency_ms)}ms` : '—' },
+                { label: 'Last Called', value: stats.last_called_at ? formatDate(stats.last_called_at) : '—' },
+              ].map(({ label, value }) => (
+                <Box
+                  key={label}
+                  sx={{
+                    border: `1px solid ${colors.border.muted}`,
+                    borderRadius: '8px',
+                    px: 2,
+                    py: 1.75,
+                    background: colors.canvas.subtle,
+                  }}
+                >
+                  <Typography sx={{ fontSize: '0.6875rem', color: colors.fg.muted, mb: 0.5 }}>
+                    {label}
+                  </Typography>
+                  <Typography sx={{ fontSize: '1.125rem', fontWeight: 600, color: colors.fg.default }}>
+                    {value}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          )}
         </Box>
-      </Box>
+      )}
+
+      {/* ── Logs tab ── */}
+      {activeTab === 3 && (
+        <Box>
+          {logsLoading && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+              <CircularProgress size={28} />
+            </Box>
+          )}
+          {logsError && <Alert severity="error">{logsError}</Alert>}
+          {!logsLoading && !logsError && logs.length === 0 && (
+            <Typography variant="body1" sx={{ color: colors.fg.subtle, py: 6, textAlign: 'center' }}>
+              No logs yet.
+            </Typography>
+          )}
+          {!logsLoading && !logsError && logs.length > 0 && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              {logs.map((log) => (
+                <Accordion
+                  key={log.id}
+                  disableGutters
+                  elevation={0}
+                  sx={{
+                    border: `1px solid ${colors.border.muted}`,
+                    borderRadius: '8px !important',
+                    background: colors.canvas.subtle,
+                    '&:before': { display: 'none' },
+                    '&.Mui-expanded': { borderColor: colors.border.default },
+                  }}
+                >
+                  <AccordionSummary
+                    expandIcon={<ExpandMoreIcon sx={{ fontSize: 16, color: colors.fg.subtle }} />}
+                    sx={{ minHeight: 44, px: 2, '& .MuiAccordionSummary-content': { my: 0 } }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%', mr: 1 }}>
+                      <Typography sx={{ fontSize: '0.75rem', color: colors.fg.muted, flexShrink: 0 }}>
+                        #{log.call_order}
+                      </Typography>
+                      <Typography sx={{ fontSize: '0.8125rem', color: colors.fg.default, flex: 1 }}>
+                        {formatDate(log.called_at)}
+                      </Typography>
+                      <Typography sx={{ fontSize: '0.75rem', color: colors.fg.subtle, flexShrink: 0 }}>
+                        {log.latency_ms !== null ? `${log.latency_ms}ms` : '—'}
+                      </Typography>
+                    </Box>
+                  </AccordionSummary>
+                  {(log.input !== null || log.output !== null) && (
+                    <AccordionDetails sx={{ px: 2, pt: 0, pb: 1.5 }}>
+                      <Divider sx={{ mb: 1.5 }} />
+                      {log.input !== null && (
+                        <Box sx={{ mb: log.output !== null ? 1.5 : 0 }}>
+                          <Typography sx={{ fontSize: '0.6875rem', color: colors.fg.muted, mb: 0.5, fontWeight: 600 }}>
+                            INPUT
+                          </Typography>
+                          <Typography
+                            component="pre"
+                            sx={{
+                              fontFamily: monoFontFamily,
+                              fontSize: '0.75rem',
+                              color: colors.fg.default,
+                              whiteSpace: 'pre-wrap',
+                              wordBreak: 'break-word',
+                              m: 0,
+                            }}
+                          >
+                            {log.input}
+                          </Typography>
+                        </Box>
+                      )}
+                      {log.output !== null && (
+                        <Box>
+                          <Typography sx={{ fontSize: '0.6875rem', color: colors.fg.muted, mb: 0.5, fontWeight: 600 }}>
+                            OUTPUT
+                          </Typography>
+                          <Typography
+                            component="pre"
+                            sx={{
+                              fontFamily: monoFontFamily,
+                              fontSize: '0.75rem',
+                              color: colors.fg.default,
+                              whiteSpace: 'pre-wrap',
+                              wordBreak: 'break-word',
+                              m: 0,
+                            }}
+                          >
+                            {log.output}
+                          </Typography>
+                        </Box>
+                      )}
+                    </AccordionDetails>
+                  )}
+                </Accordion>
+              ))}
+            </Box>
+          )}
+        </Box>
+      )}
+
+      {/* ── Settings tab ── */}
+      {activeTab === 4 && (
+        <Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box>
+              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                Show in Flow
+              </Typography>
+              <Typography variant="caption" sx={{ color: colors.fg.muted }}>
+                Include this chain in the agent's flow visualization.
+              </Typography>
+            </Box>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={chain.show_in_flow}
+                  onChange={handleToggleShowInFlow}
+                  disabled={showInFlowSaving}
+                  size="small"
+                />
+              }
+              label=""
+              sx={{ m: 0 }}
+            />
+          </Box>
+        </Box>
+      )}
 
       {/* ── Commit dialog ── */}
       <Dialog

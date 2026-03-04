@@ -1,8 +1,10 @@
 import uuid
+from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.agent_run import ChainCallLog
 from app.models.chain import Chain
 from app.models.chain_version import ChainVersion
 from app.schemas.chain import ChainCreate, ChainUpdate
@@ -99,6 +101,49 @@ async def rollback_chain(db: AsyncSession, chain: Chain, target_version: ChainVe
 async def delete_chain(db: AsyncSession, chain: Chain) -> None:
     await db.delete(chain)
     await db.commit()
+
+
+async def get_chain_stats(db: AsyncSession, chain_id: uuid.UUID) -> dict:
+    # chain_call_logs has no chain_id FK; join via chain_name + agent_id
+    chain_filter = (
+        select(ChainCallLog)
+        .join(Chain, (ChainCallLog.chain_name == Chain.name) & (ChainCallLog.agent_id == Chain.agent_id))
+        .where(Chain.id == chain_id)
+        .subquery()
+    )
+    logs = chain_filter.c
+
+    result = await db.execute(
+        select(
+            func.count().label("total_calls"),
+            func.count(logs.run_id.distinct()).label("runs_appeared_in"),
+            func.avg(logs.latency_ms).label("avg_latency_ms"),
+            func.percentile_cont(0.95).within_group(logs.latency_ms.asc()).label("p95_latency_ms"),
+            func.max(logs.called_at).label("last_called_at"),
+        )
+    )
+    row = result.one()
+    return {
+        "total_calls": row.total_calls,
+        "runs_appeared_in": row.runs_appeared_in,
+        "avg_latency_ms": float(row.avg_latency_ms) if row.avg_latency_ms is not None else None,
+        "p95_latency_ms": float(row.p95_latency_ms) if row.p95_latency_ms is not None else None,
+        "last_called_at": row.last_called_at,
+    }
+
+
+async def get_chain_logs(
+    db: AsyncSession, chain_id: uuid.UUID, limit: int, offset: int
+) -> list[ChainCallLog]:
+    result = await db.execute(
+        select(ChainCallLog)
+        .join(Chain, (ChainCallLog.chain_name == Chain.name) & (ChainCallLog.agent_id == Chain.agent_id))
+        .where(Chain.id == chain_id)
+        .order_by(ChainCallLog.called_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    return list(result.scalars().all())
 
 
 async def reorder_chains(
