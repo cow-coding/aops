@@ -490,6 +490,7 @@ export default function ChainDetailPage() {
   const [logsLoaded, setLogsLoaded] = useState(false);
   const [logsError, setLogsError] = useState<string | null>(null);
   const [pendingLogs, setPendingLogs] = useState<ChainLog[]>([]);
+  const [newLogIds, setNewLogIds] = useState<Set<string>>(new Set());
   const logsRef = useRef<ChainLog[]>([]);
 
   const loadStats = useCallback(() => {
@@ -1035,7 +1036,10 @@ export default function ChainDetailPage() {
                 const merged = [...pendingLogs, ...logs];
                 setLogs(merged);
                 logsRef.current = merged;
+                const ids = new Set(pendingLogs.map((l) => l.id));
+                setNewLogIds(ids);
                 setPendingLogs([]);
+                setTimeout(() => setNewLogIds(new Set()), 2000);
               }}
               sx={{
                 mb: 1.5,
@@ -1069,17 +1073,20 @@ export default function ChainDetailPage() {
           )}
           {!logsLoading && !logsError && logs.length > 0 && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-              {logs.map((log) => (
+              {logs.map((log) => {
+                const isNew = newLogIds.has(log.id);
+                return (
                 <Accordion
                   key={log.id}
                   disableGutters
                   elevation={0}
                   sx={{
-                    border: `1px solid ${colors.border.muted}`,
+                    border: isNew ? '1px solid rgba(56,139,253,0.5)' : `1px solid ${colors.border.muted}`,
                     borderRadius: '8px !important',
-                    background: colors.canvas.subtle,
+                    background: isNew ? 'rgba(56,139,253,0.07)' : colors.canvas.subtle,
+                    transition: 'border-color 1.5s ease, background-color 1.5s ease',
                     '&:before': { display: 'none' },
-                    '&.Mui-expanded': { borderColor: colors.border.default },
+                    '&.Mui-expanded': { borderColor: isNew ? 'rgba(56,139,253,0.5)' : colors.border.default },
                   }}
                 >
                   <AccordionSummary
@@ -1156,7 +1163,7 @@ export default function ChainDetailPage() {
                     </AccordionDetails>
                   )}
                 </Accordion>
-              ))}
+              ); })}
             </Box>
           )}
         </Box>
