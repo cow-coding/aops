@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Accordion,
   AccordionDetails,
@@ -19,6 +19,7 @@ import CallMadeIcon from '@mui/icons-material/CallMade';
 import CallReceivedIcon from '@mui/icons-material/CallReceived';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import TimelineOutlinedIcon from '@mui/icons-material/TimelineOutlined';
+import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import type { Agent } from '../types/agent';
 import type { RunSummary, RunDetail } from '../types/run';
 import { agentApi } from '../services/agentApi';
@@ -274,6 +275,7 @@ function RunRow({
   detailError,
   onToggle,
   mode,
+  isSlow,
 }: {
   run: RunSummary;
   expanded: boolean;
@@ -282,6 +284,7 @@ function RunRow({
   detailError: string | null;
   onToggle: () => void;
   mode: 'dark' | 'light';
+  isSlow: boolean;
 }) {
   const theme = useTheme();
   const colors = theme.colors;
@@ -294,11 +297,11 @@ function RunRow({
       expanded={expanded}
       onChange={onToggle}
       sx={{
-        border: `1px solid ${colors.border.muted}`,
+        border: `1px solid ${isSlow ? 'rgba(210, 153, 34, 0.45)' : colors.border.muted}`,
         borderRadius: '8px !important',
         background: colors.canvas.subtle,
         '&:before': { display: 'none' },
-        '&.Mui-expanded': { borderColor: colors.border.default },
+        '&.Mui-expanded': { borderColor: isSlow ? 'rgba(210, 153, 34, 0.7)' : colors.border.default },
       }}
     >
       <AccordionSummary
@@ -318,9 +321,12 @@ function RunRow({
             {formatDate(run.started_at)}
           </Typography>
           {/* Duration col */}
-          <Typography sx={{ fontSize: '0.75rem', color: colors.fg.subtle, width: 72, flexShrink: 0 }}>
-            {formatDuration(run.duration_ms)}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, width: 72, flexShrink: 0 }}>
+            <Typography sx={{ fontSize: '0.75rem', color: isSlow ? '#ff7b72' : colors.fg.subtle }}>
+              {formatDuration(run.duration_ms)}
+            </Typography>
+            {isSlow && <WarningAmberOutlinedIcon sx={{ fontSize: 12, color: '#ff7b72' }} />}
+          </Box>
           {/* Calls col */}
           <Typography sx={{ fontSize: '0.75rem', color: colors.fg.subtle, width: 48, flexShrink: 0 }}>
             {run.chain_names.length}
@@ -361,6 +367,9 @@ export default function TracesPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
+  const [pendingRuns, setPendingRuns] = useState<RunSummary[]>([]);
+  const runsRef = useRef<RunSummary[]>([]);
+
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
   const [details, setDetails] = useState<Record<string, RunDetail>>({});
   const [detailLoading, setDetailLoading] = useState<Record<string, boolean>>({});
@@ -382,6 +391,7 @@ export default function TracesPage() {
     })
       .then((data) => {
         setRuns(data);
+        runsRef.current = data;
         setTotalPages(data.length === PAGE_SIZE ? page + 1 : page);
       })
       .catch((err: Error) => setError(err.message))
@@ -392,6 +402,34 @@ export default function TracesPage() {
 
   // Reset page when filters change
   useEffect(() => { setPage(1); }, [selectedAgentId, timeRange]);
+
+  // Live polling — 15s, silent, first page only
+  useEffect(() => {
+    const id = setInterval(() => {
+      runsApi.list({
+        agent_id: selectedAgentId || undefined,
+        started_after: timeRangeToAfter(timeRange),
+        limit: PAGE_SIZE,
+        offset: 0,
+      }).then((fresh) => {
+        if (fresh.length > 0 && runsRef.current.length > 0 && fresh[0].id !== runsRef.current[0].id) {
+          const knownIds = new Set(runsRef.current.map((r) => r.id));
+          const newRuns = fresh.filter((r) => !knownIds.has(r.id));
+          if (newRuns.length > 0) setPendingRuns(newRuns);
+        }
+      }).catch(() => {});
+    }, 15000);
+    return () => clearInterval(id);
+  }, [selectedAgentId, timeRange]);
+
+  // Computed stats
+  const validDurations = runs.filter((r) => r.duration_ms !== null).map((r) => r.duration_ms as number);
+  const avgDuration = validDurations.length > 0
+    ? validDurations.reduce((a, b) => a + b, 0) / validDurations.length
+    : null;
+  const slowCount = avgDuration !== null
+    ? runs.filter((r) => r.duration_ms !== null && r.duration_ms > avgDuration * 2).length
+    : 0;
 
   const handleToggleRun = useCallback((runId: string) => {
     if (expandedRunId === runId) {
@@ -446,6 +484,34 @@ export default function TracesPage() {
         </ToggleButtonGroup>
       </Box>
 
+      {/* Summary banner */}
+      {!loading && !error && runs.length > 0 && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, px: 0.5 }}>
+          <Typography sx={{ fontSize: '0.75rem', color: colors.fg.muted }}>
+            {runs.length} runs
+          </Typography>
+          {avgDuration !== null && (
+            <>
+              <Typography sx={{ fontSize: '0.75rem', color: colors.fg.subtle }}>·</Typography>
+              <Typography sx={{ fontSize: '0.75rem', color: colors.fg.muted }}>
+                avg {formatDuration(Math.round(avgDuration))}
+              </Typography>
+            </>
+          )}
+          {slowCount > 0 && (
+            <>
+              <Typography sx={{ fontSize: '0.75rem', color: colors.fg.subtle }}>·</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+                <WarningAmberOutlinedIcon sx={{ fontSize: 12, color: '#ff7b72' }} />
+                <Typography sx={{ fontSize: '0.75rem', color: '#ff7b72' }}>
+                  {slowCount} slow
+                </Typography>
+              </Box>
+            </>
+          )}
+        </Box>
+      )}
+
       {/* Table header */}
       <Box sx={{
         display: 'flex', alignItems: 'center', gap: 2,
@@ -487,6 +553,31 @@ export default function TracesPage() {
       )}
       {!loading && !error && runs.length > 0 && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, mt: 0.5 }}>
+          {/* Pending runs banner */}
+          {pendingRuns.length > 0 && (
+            <Box
+              onClick={() => {
+                const merged = [...pendingRuns, ...runs];
+                setRuns(merged);
+                runsRef.current = merged;
+                setPendingRuns([]);
+              }}
+              sx={{
+                px: 2, py: 1,
+                borderRadius: '8px',
+                border: `1px solid ${colors.accent.muted}`,
+                background: colors.accent.subtle,
+                cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                '&:hover': { background: colors.accent.muted },
+                transition: 'background 0.1s ease',
+              }}
+            >
+              <Typography sx={{ fontSize: '0.8125rem', color: colors.accent.fg, fontWeight: 500 }}>
+                ↑ {pendingRuns.length} new {pendingRuns.length === 1 ? 'run' : 'runs'} — click to load
+              </Typography>
+            </Box>
+          )}
           {runs.map((run) => (
             <RunRow
               key={run.id}
@@ -497,6 +588,7 @@ export default function TracesPage() {
               detailError={detailError[run.id] ?? null}
               onToggle={() => handleToggleRun(run.id)}
               mode={mode}
+              isSlow={avgDuration !== null && run.duration_ms !== null && run.duration_ms > avgDuration * 2}
             />
           ))}
         </Box>
