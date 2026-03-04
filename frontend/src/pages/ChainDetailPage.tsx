@@ -55,13 +55,43 @@ function tryFormatJson(text: string): { formatted: string; isJson: boolean } {
   }
 }
 
-function highlightJson(formatted: string): string {
+const JSON_HIGHLIGHT_PALETTE: Record<'dark' | 'light', {
+  key: string; string: string; number: string; boolean: string; null: string; punctuation: string;
+}> = {
+  dark: {
+    key:         '#d2a8ff',
+    string:      '#a5d6ff',
+    number:      '#79c0ff',
+    boolean:     '#ff7b72',
+    null:        '#8b949e',
+    punctuation: '#656d76',
+  },
+  light: {
+    key:         '#953800',
+    string:      '#0a3069',
+    number:      '#0550ae',
+    boolean:     '#cf222e',
+    null:        '#6e7781',
+    punctuation: '#57606a',
+  },
+};
+
+function highlightJson(formatted: string, mode: 'dark' | 'light' = 'dark'): string {
+  const p = JSON_HIGHLIGHT_PALETTE[mode];
   return escapeHtml(formatted).replace(
-    /("(?:\\u[0-9a-fA-F]{4}|\\[^u]|[^\\"])*"(?:\s*:)?|true|false|null|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g,
+    /("(?:\\u[0-9a-fA-F]{4}|\\[^u]|[^\\"])*"(?:\s*:)?|true|false|null|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?|[{}[\],:])/g,
     (match) => {
-      let color = '#f97583';
+      let color: string;
       if (match.startsWith('"')) {
-        color = match.trimEnd().endsWith(':') ? '#79b8ff' : '#9ecbff';
+        color = match.trimEnd().endsWith(':') ? p.key : p.string;
+      } else if (match === 'true' || match === 'false') {
+        color = p.boolean;
+      } else if (match === 'null') {
+        color = p.null;
+      } else if (/^-?\d/.test(match)) {
+        color = p.number;
+      } else {
+        color = p.punctuation;
       }
       return `<span style="color:${color}">${match}</span>`;
     },
@@ -1154,7 +1184,7 @@ export default function ChainDetailPage() {
                                 whiteSpace: 'pre-wrap', wordBreak: 'break-word', m: 0,
                                 borderLeft: '2px solid rgba(56, 139, 253, 0.35)', pl: 1.25,
                               }}
-                              dangerouslySetInnerHTML={{ __html: highlightJson(inputFmt.formatted) }}
+                              dangerouslySetInnerHTML={{ __html: highlightJson(inputFmt.formatted, theme.palette.mode) }}
                             />
                           ) : (
                             <Typography
@@ -1192,7 +1222,7 @@ export default function ChainDetailPage() {
                                 whiteSpace: 'pre-wrap', wordBreak: 'break-word', m: 0,
                                 borderLeft: '2px solid rgba(63, 185, 80, 0.35)', pl: 1.25,
                               }}
-                              dangerouslySetInnerHTML={{ __html: highlightJson(outputFmt.formatted) }}
+                              dangerouslySetInnerHTML={{ __html: highlightJson(outputFmt.formatted, theme.palette.mode) }}
                             />
                           ) : (
                             <Typography
