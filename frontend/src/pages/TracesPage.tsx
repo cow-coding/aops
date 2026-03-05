@@ -14,6 +14,7 @@ import {
   Select,
   ToggleButton,
   ToggleButtonGroup,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
@@ -180,15 +181,21 @@ function RunDetailPanel({ detail, mode, chainLatencyMap }: { detail: RunDetail; 
                 {call.chain_name}
               </Box>
               {call.latency_ms !== null && (
-                <Box sx={{
-                  display: 'flex', alignItems: 'center', gap: 0.5,
-                  px: 0.75, py: 0.125, borderRadius: '4px',
-                  border: `1px solid ${isSlowCall ? 'rgba(248, 81, 73, 0.4)' : colors.border.muted}`,
-                  fontSize: '0.6875rem', color: isSlowCall ? '#F85149' : colors.fg.subtle,
-                }}>
-                  {call.latency_ms}ms
-                  {isSlowCall && <WarningAmberOutlinedIcon sx={{ fontSize: 12, color: '#F85149' }} />}
-                </Box>
+                <Tooltip
+                  title={isSlowCall ? `Slow — this call took ${call.latency_ms.toLocaleString()}ms (p95: ${p95.toLocaleString()}ms)` : ''}
+                  placement="top"
+                  disableHoverListener={!isSlowCall}
+                >
+                  <Box sx={{
+                    display: 'flex', alignItems: 'center', gap: 0.5,
+                    px: 0.75, py: 0.125, borderRadius: '4px',
+                    border: `1px solid ${isSlowCall ? 'rgba(248, 81, 73, 0.4)' : colors.border.muted}`,
+                    fontSize: '0.6875rem', color: isSlowCall ? '#F85149' : colors.fg.subtle,
+                  }}>
+                    {call.latency_ms}ms
+                    {isSlowCall && <WarningAmberOutlinedIcon sx={{ fontSize: 12, color: '#F85149' }} />}
+                  </Box>
+                </Tooltip>
               )}
               <Typography sx={{ fontSize: '0.6875rem', color: colors.fg.subtle, ml: 'auto' }}>
                 {formatDate(call.called_at)}
