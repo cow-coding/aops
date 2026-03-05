@@ -9,6 +9,7 @@ export interface RunsListParams {
   offset?: number;
   source_chain?: string;
   target_chain?: string;
+  status?: string;
 }
 
 export interface RunsListResponse {
@@ -26,6 +27,7 @@ export const runsApi = {
     if (params?.offset !== undefined) qs.set('offset', String(params.offset));
     if (params?.source_chain) qs.set('source_chain', params.source_chain);
     if (params?.target_chain) qs.set('target_chain', params.target_chain);
+    if (params?.status) qs.set('status', params.status);
     const query = qs.toString() ? `?${qs.toString()}` : '';
     return api.get<RunsListResponse>(`/runs/${query}`);
   },

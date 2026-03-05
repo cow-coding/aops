@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -10,7 +11,7 @@ class ChainCallLogCreate(BaseModel):
     latency_ms: int | None = None
     input: str | None = None
     output: str | None = None
-    status: str = "success"
+    status: Literal["success", "error"] = "success"
     error_message: str | None = None
 
 
@@ -18,8 +19,8 @@ class AgentRunCreate(BaseModel):
     started_at: datetime
     ended_at: datetime | None = None
     chain_calls: list[ChainCallLogCreate] = Field(default=[], max_length=1000)
-    status: str = "success"
-    error_type: str | None = None
+    status: Literal["success", "error", "running"] = "success"
+    error_type: Literal["llm_api_error", "timeout", "validation_error", "exception"] | None = None
     error_message: str | None = None
     error_traceback: str | None = None
 
@@ -55,7 +56,7 @@ class RunSummary(BaseModel):
     ended_at: datetime | None
     duration_ms: int | None
     chain_names: list[str]
-    status: str
+    status: Literal["success", "error", "running"]
 
 
 class RunListResponse(BaseModel):

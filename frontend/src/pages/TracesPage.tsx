@@ -525,6 +525,7 @@ export default function TracesPage({ agentId: fixedAgentId, showStackTrace = fal
       offset: (page - 1) * PAGE_SIZE,
       source_chain: edgeSource ?? undefined,
       target_chain: edgeTarget ?? undefined,
+      status: statusFilter ?? undefined,
     })
       .then((data) => {
         setRuns(data.items);
@@ -533,7 +534,7 @@ export default function TracesPage({ agentId: fixedAgentId, showStackTrace = fal
       })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [effectiveAgentId, timeRange, page, edgeSource, edgeTarget]);
+  }, [effectiveAgentId, timeRange, page, edgeSource, edgeTarget, statusFilter]);
 
   useEffect(() => { loadRuns(); }, [loadRuns]);
 
@@ -550,6 +551,7 @@ export default function TracesPage({ agentId: fixedAgentId, showStackTrace = fal
         offset: 0,
         source_chain: edgeSource ?? undefined,
         target_chain: edgeTarget ?? undefined,
+        status: statusFilter ?? undefined,
       }).then((fresh) => {
         if (page !== 1) return;
         const freshItems = fresh.items;
@@ -561,7 +563,7 @@ export default function TracesPage({ agentId: fixedAgentId, showStackTrace = fal
       }).catch(() => {});
     }, 15000);
     return () => clearInterval(id);
-  }, [effectiveAgentId, timeRange, page, edgeSource, edgeTarget]);
+  }, [effectiveAgentId, timeRange, page, edgeSource, edgeTarget, statusFilter]);
 
   // Computed stats
   const validDurations = runs.filter((r) => r.duration_ms !== null).map((r) => r.duration_ms as number);
@@ -576,6 +578,7 @@ export default function TracesPage({ agentId: fixedAgentId, showStackTrace = fal
   const slowCount = medianDuration !== null
     ? runs.filter((r) => r.duration_ms !== null && r.duration_ms > medianDuration * 2).length
     : 0;
+  const errorCount = runs.filter((r) => r.status === 'error').length;
 
   const handleToggleRun = useCallback((runId: string) => {
     if (expandedRunId === runId) {
@@ -717,6 +720,40 @@ export default function TracesPage({ agentId: fixedAgentId, showStackTrace = fal
               </Box>
             </>
           )}
+          {errorCount > 0 && (
+            <>
+              <Typography sx={{ fontSize: '0.75rem', color: colors.fg.subtle }}>·</Typography>
+              <Box
+                onClick={() => {
+                  const next = new URLSearchParams(searchParams);
+                  if (statusFilter === 'error') {
+                    next.delete('status');
+                  } else {
+                    next.set('status', 'error');
+                  }
+                  setSearchParams(next);
+                }}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.25,
+                  cursor: 'pointer',
+                  px: 0.75,
+                  py: 0.25,
+                  borderRadius: '4px',
+                  background: statusFilter === 'error' ? 'rgba(248, 81, 73, 0.2)' : 'transparent',
+                  border: `1px solid ${statusFilter === 'error' ? 'rgba(248, 81, 73, 0.5)' : 'transparent'}`,
+                  transition: 'all 0.15s',
+                  '&:hover': { background: 'rgba(248, 81, 73, 0.15)' },
+                }}
+              >
+                <WarningAmberOutlinedIcon sx={{ fontSize: 12, color: '#F85149' }} />
+                <Typography sx={{ fontSize: '0.75rem', color: '#F85149' }}>
+                  {errorCount} Error
+                </Typography>
+              </Box>
+            </>
+          )}
           {showSlowOnly && (
             <Typography
               onClick={() => setShowSlowOnly(false)}
@@ -796,7 +833,6 @@ export default function TracesPage({ agentId: fixedAgentId, showStackTrace = fal
           )}
           {runs
             .filter((run) => !showSlowOnly || (medianDuration !== null && run.duration_ms !== null && run.duration_ms > medianDuration * 2))
-            .filter((run) => !statusFilter || run.status === statusFilter)
             .map((run) => (
               <RunRow
                 key={run.id}
