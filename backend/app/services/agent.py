@@ -153,55 +153,59 @@ def _latency_ms_expr():
     return func.extract("epoch", AgentRun.ended_at - AgentRun.started_at) * 1000
 
 
-async def get_agent_stats(db: AsyncSession, agent_id: uuid.UUID) -> dict:
+async def get_agent_stats(
+    db: AsyncSession,
+    agent_id: uuid.UUID,
+    started_after: datetime | None = None,
+    started_before: datetime | None = None,
+) -> dict:
     latency_ms = _latency_ms_expr()
+    now = datetime.now(timezone.utc)
 
-    # All-time aggregates
-    result = await db.execute(
-        select(
+    def _base_stmt():
+        return select(
             func.count().label("total_runs"),
             func.count().filter(AgentRun.status == "success").label("success_count"),
             func.count().filter(AgentRun.status == "error").label("error_count"),
             func.avg(latency_ms).label("avg_latency_ms"),
             func.percentile_cont(0.95).within_group(latency_ms.asc()).label("p95_latency_ms"),
-        )
-        .where(AgentRun.agent_id == agent_id)
-    )
-    row = result.one()
+        ).where(AgentRun.agent_id == agent_id)
 
-    total_runs = row.total_runs
-    success_count = row.success_count
-    error_count = row.error_count
+    if started_after is not None and started_before is not None:
+        # Period mode: VALUE = selected period, TREND = selected period vs previous equal period
+        delta = started_before - started_after
+        prev_start = started_after - delta
 
-    # Trend: last 24h vs previous 24h
-    now = datetime.now(timezone.utc)
-    period_start = now - timedelta(hours=24)
-    prev_start = period_start - timedelta(hours=24)
+        row = (await db.execute(
+            _base_stmt()
+            .where(AgentRun.started_at >= started_after)
+            .where(AgentRun.started_at < started_before)
+        )).one()
 
-    curr_row = (
-        await db.execute(
-            select(
-                func.count().label("total_runs"),
-                func.avg(latency_ms).label("avg_latency_ms"),
-                func.percentile_cont(0.95).within_group(latency_ms.asc()).label("p95_latency_ms"),
-            )
-            .where(AgentRun.agent_id == agent_id)
+        prev_row = (await db.execute(
+            _base_stmt()
+            .where(AgentRun.started_at >= prev_start)
+            .where(AgentRun.started_at < started_after)
+        )).one()
+
+        curr_row = row  # VALUE and curr trend are the same period
+    else:
+        # Default mode: VALUE = all-time, TREND = last 24h vs previous 24h
+        period_start = now - timedelta(hours=24)
+        prev_start = period_start - timedelta(hours=24)
+
+        row = (await db.execute(_base_stmt())).one()
+
+        curr_row = (await db.execute(
+            _base_stmt()
             .where(AgentRun.started_at >= period_start)
-        )
-    ).one()
+        )).one()
 
-    prev_row = (
-        await db.execute(
-            select(
-                func.count().label("total_runs"),
-                func.avg(latency_ms).label("avg_latency_ms"),
-                func.percentile_cont(0.95).within_group(latency_ms.asc()).label("p95_latency_ms"),
-            )
-            .where(AgentRun.agent_id == agent_id)
+        prev_row = (await db.execute(
+            _base_stmt()
             .where(AgentRun.started_at >= prev_start)
             .where(AgentRun.started_at < period_start)
-        )
-    ).one()
+        )).one()
 
     curr_avg = float(curr_row.avg_latency_ms) if curr_row.avg_latency_ms is not None else None
     prev_avg = float(prev_row.avg_latency_ms) if prev_row.avg_latency_ms is not None else None
@@ -209,9 +213,9 @@ async def get_agent_stats(db: AsyncSession, agent_id: uuid.UUID) -> dict:
     prev_p95 = float(prev_row.p95_latency_ms) if prev_row.p95_latency_ms is not None else None
 
     return {
-        "total_runs": total_runs,
-        "success_count": success_count,
-        "error_count": error_count,
+        "total_runs": row.total_runs,
+        "success_count": row.success_count,
+        "error_count": row.error_count,
         "avg_latency_ms": float(row.avg_latency_ms) if row.avg_latency_ms is not None else None,
         "p95_latency_ms": float(row.p95_latency_ms) if row.p95_latency_ms is not None else None,
         "trend": {

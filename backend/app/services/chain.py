@@ -103,15 +103,24 @@ async def delete_chain(db: AsyncSession, chain: Chain) -> None:
     await db.commit()
 
 
-async def get_chain_stats(db: AsyncSession, chain_id: uuid.UUID) -> dict:
+async def get_chain_stats(
+    db: AsyncSession,
+    chain_id: uuid.UUID,
+    started_after: datetime | None = None,
+    started_before: datetime | None = None,
+) -> dict:
     # chain_call_logs has no chain_id FK; join via chain_name + agent_id
     chain_filter = (
         select(ChainCallLog)
         .join(Chain, (ChainCallLog.chain_name == Chain.name) & (ChainCallLog.agent_id == Chain.agent_id))
         .where(Chain.id == chain_id)
-        .subquery()
     )
-    logs = chain_filter.c
+    if started_after is not None:
+        chain_filter = chain_filter.where(ChainCallLog.called_at >= started_after)
+    if started_before is not None:
+        chain_filter = chain_filter.where(ChainCallLog.called_at < started_before)
+
+    logs = chain_filter.subquery().c
 
     result = await db.execute(
         select(

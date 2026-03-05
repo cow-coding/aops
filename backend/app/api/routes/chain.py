@@ -91,6 +91,8 @@ async def get_chain(
 async def get_chain_stats(
     agent_id: uuid.UUID,
     chain_id: uuid.UUID,
+    started_after: datetime | None = Query(default=None),
+    started_before: datetime | None = Query(default=None),
     auth: User | uuid.UUID = Depends(get_chain_reader_auth),
     db: AsyncSession = Depends(get_db),
 ):
@@ -98,7 +100,7 @@ async def get_chain_stats(
     chain = await chain_service.get_chain(db, chain_id)
     if not chain or chain.agent_id != agent_id:
         raise HTTPException(status_code=404, detail="Chain not found")
-    return await chain_service.get_chain_stats(db, chain_id)
+    return await chain_service.get_chain_stats(db, chain_id, started_after, started_before)
 
 
 @router.get("/{chain_id}/stats/timeseries", response_model=ChainTimeseriesResponse)

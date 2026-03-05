@@ -56,6 +56,8 @@ async def get_agent(
 @router.get("/{agent_id}/stats", response_model=AgentStatsResponse)
 async def get_agent_stats(
     agent_id: uuid.UUID,
+    started_after: datetime | None = Query(default=None),
+    started_before: datetime | None = Query(default=None),
     auth: User | uuid.UUID = Depends(get_chain_reader_auth),
     db: AsyncSession = Depends(get_db),
 ):
@@ -68,7 +70,7 @@ async def get_agent_stats(
     else:
         if not await agent_service.can_access_agent(db, agent, auth.id):
             raise HTTPException(status_code=403, detail="Access denied.")
-    return await agent_service.get_agent_stats(db, agent_id)
+    return await agent_service.get_agent_stats(db, agent_id, started_after, started_before)
 
 
 @router.get("/{agent_id}/stats/timeseries", response_model=AgentTimeseriesResponse)
