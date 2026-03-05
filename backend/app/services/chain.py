@@ -345,6 +345,41 @@ async def get_chain_timeseries(
     return {"buckets": buckets, "trend": trend}
 
 
+async def get_chains_latency_summary(
+    db: AsyncSession, agent_id: uuid.UUID
+) -> list[dict]:
+    rows = (
+        await db.execute(
+            select(
+                ChainCallLog.chain_name,
+                func.count().label("call_count"),
+                func.avg(ChainCallLog.latency_ms).label("avg_latency_ms"),
+                func.percentile_cont(0.5)
+                .within_group(ChainCallLog.latency_ms.asc())
+                .label("median_latency_ms"),
+                func.percentile_cont(0.95)
+                .within_group(ChainCallLog.latency_ms.asc())
+                .label("p95_latency_ms"),
+            )
+            .where(ChainCallLog.agent_id == agent_id)
+            .where(ChainCallLog.latency_ms.is_not(None))
+            .group_by(ChainCallLog.chain_name)
+            .order_by(ChainCallLog.chain_name)
+        )
+    ).all()
+
+    return [
+        {
+            "chain_name": row.chain_name,
+            "call_count": row.call_count,
+            "avg_latency_ms": float(row.avg_latency_ms) if row.avg_latency_ms is not None else None,
+            "p95_latency_ms": float(row.p95_latency_ms) if row.p95_latency_ms is not None else None,
+            "median_latency_ms": float(row.median_latency_ms) if row.median_latency_ms is not None else None,
+        }
+        for row in rows
+    ]
+
+
 async def reorder_chains(
     db: AsyncSession, agent_id: uuid.UUID, chain_ids: list[uuid.UUID]
 ) -> None:

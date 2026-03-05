@@ -28,6 +28,7 @@ import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import type { Agent } from '../types/agent';
 import type { RunSummary, RunDetail } from '../types/run';
 import { agentApi } from '../services/agentApi';
+import { chainApi } from '../services/chainApi';
 import { runsApi } from '../services/runsApi';
 import { monoFontFamily } from '../theme';
 import StackTraceModal from '../components/StackTraceModal';
@@ -145,7 +146,7 @@ function ChainFlowChips({ names }: { names: string[] }) {
 
 // ── Run detail accordion content ──────────────────────────────────────────────
 
-function RunDetailPanel({ detail, mode }: { detail: RunDetail; mode: 'dark' | 'light' }) {
+function RunDetailPanel({ detail, mode, chainLatencyMap }: { detail: RunDetail; mode: 'dark' | 'light'; chainLatencyMap: Record<string, number> }) {
   const theme = useTheme();
   const colors = theme.colors;
 
@@ -155,11 +156,13 @@ function RunDetailPanel({ detail, mode }: { detail: RunDetail; mode: 'dark' | 'l
         const inputFmt = call.input !== null ? tryFormatJson(call.input) : null;
         const outputFmt = call.output !== null ? tryFormatJson(call.output) : null;
         const hasIo = call.input !== null || call.output !== null;
+        const p95 = chainLatencyMap[call.chain_name];
+        const isSlowCall = call.latency_ms !== null && p95 !== undefined && call.latency_ms > p95;
         return (
           <Box
             key={call.id}
             sx={{
-              border: `1px solid ${colors.border.muted}`,
+              border: `1px solid ${isSlowCall ? 'rgba(248, 81, 73, 0.3)' : colors.border.muted}`,
               borderRadius: '6px',
               background: colors.canvas.elevated,
               overflow: 'hidden',
@@ -178,11 +181,13 @@ function RunDetailPanel({ detail, mode }: { detail: RunDetail; mode: 'dark' | 'l
               </Box>
               {call.latency_ms !== null && (
                 <Box sx={{
+                  display: 'flex', alignItems: 'center', gap: 0.5,
                   px: 0.75, py: 0.125, borderRadius: '4px',
-                  border: `1px solid ${colors.border.muted}`,
-                  fontSize: '0.6875rem', color: colors.fg.subtle,
+                  border: `1px solid ${isSlowCall ? 'rgba(248, 81, 73, 0.4)' : colors.border.muted}`,
+                  fontSize: '0.6875rem', color: isSlowCall ? '#F85149' : colors.fg.subtle,
                 }}>
                   {call.latency_ms}ms
+                  {isSlowCall && <WarningAmberOutlinedIcon sx={{ fontSize: 12, color: '#F85149' }} />}
                 </Box>
               )}
               <Typography sx={{ fontSize: '0.6875rem', color: colors.fg.subtle, ml: 'auto' }}>
@@ -284,6 +289,7 @@ function RunRow({
   showViewError,
   mode,
   isSlow,
+  chainLatencyMap,
 }: {
   run: RunSummary;
   expanded: boolean;
@@ -295,6 +301,7 @@ function RunRow({
   showViewError: boolean;
   mode: 'dark' | 'light';
   isSlow: boolean;
+  chainLatencyMap: Record<string, number>;
 }) {
   const theme = useTheme();
   const colors = theme.colors;
@@ -427,7 +434,7 @@ function RunRow({
           </Box>
         )}
         {detailError && <Alert severity="error">{detailError}</Alert>}
-        {detail && <RunDetailPanel detail={detail} mode={mode} />}
+        {detail && <RunDetailPanel detail={detail} mode={mode} chainLatencyMap={chainLatencyMap} />}
         {run.status === 'error' && onOpenStackTrace && (
           <Box sx={{ mt: detail ? 1.5 : 0 }}>
             <Button
@@ -579,6 +586,40 @@ export default function TracesPage({ agentId: fixedAgentId, showStackTrace = fal
     ? runs.filter((r) => r.duration_ms !== null && r.duration_ms > medianDuration * 2).length
     : 0;
   const errorCount = runs.filter((r) => r.status === 'error').length;
+
+  // Chain-level slow detection: p95 per chain_name fetched from backend
+  // agentChainStats: agentId → { chainName → p95_latency_ms }
+  const [agentChainStats, setAgentChainStats] = useState<Record<string, Record<string, number>>>({});
+  const fetchedAgentsRef = useRef<Set<string>>(new Set());
+
+  // fixedAgentId mode: fetch once on mount
+  useEffect(() => {
+    if (!fixedAgentId) return;
+    chainApi.getChainStatsSummary(fixedAgentId).then((data) => {
+      const map: Record<string, number> = {};
+      for (const c of data.chains) {
+        if (c.p95_latency_ms !== null) map[c.chain_name] = c.p95_latency_ms;
+      }
+      setAgentChainStats((prev) => ({ ...prev, [fixedAgentId]: map }));
+    }).catch(() => {});
+  }, [fixedAgentId]);
+
+  // Global mode: lazy fetch per unique agent_id when runs load
+  useEffect(() => {
+    if (fixedAgentId) return;
+    const agentIds = [...new Set(runs.map((r) => r.agent_id))];
+    for (const agentId of agentIds) {
+      if (fetchedAgentsRef.current.has(agentId)) continue;
+      fetchedAgentsRef.current.add(agentId);
+      chainApi.getChainStatsSummary(agentId).then((data) => {
+        const map: Record<string, number> = {};
+        for (const c of data.chains) {
+          if (c.p95_latency_ms !== null) map[c.chain_name] = c.p95_latency_ms;
+        }
+        setAgentChainStats((prev) => ({ ...prev, [agentId]: map }));
+      }).catch(() => {});
+    }
+  }, [fixedAgentId, runs]);
 
   const handleToggleRun = useCallback((runId: string) => {
     if (expandedRunId === runId) {
@@ -848,6 +889,7 @@ export default function TracesPage({ agentId: fixedAgentId, showStackTrace = fal
                 showViewError={!showStackTrace}
                 mode={mode}
                 isSlow={medianDuration !== null && run.duration_ms !== null && run.duration_ms > medianDuration * 2}
+                chainLatencyMap={agentChainStats[run.agent_id] ?? {}}
               />
             ))}
         </Box>

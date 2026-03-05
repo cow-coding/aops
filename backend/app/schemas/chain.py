@@ -64,6 +64,18 @@ class ChainTimeseriesResponse(BaseModel):
     trend: TimeseriesTrend
 
 
+class ChainLatencyItem(BaseModel):
+    chain_name: str
+    call_count: int
+    avg_latency_ms: float | None
+    p95_latency_ms: float | None
+    median_latency_ms: float | None
+
+
+class ChainLatencySummaryResponse(BaseModel):
+    chains: list[ChainLatencyItem]
+
+
 class ChainReorderRequest(BaseModel):
     chain_ids: list[uuid.UUID] = Field(min_length=1)
 

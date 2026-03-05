@@ -1,6 +1,18 @@
 import { api } from './api';
 import type { Chain, ChainCreateRequest, ChainUpdateRequest, ChainVersion, ChainStats, ChainLog, ChainTimeseries } from '../types/chain';
 
+export interface ChainStatsSummaryItem {
+  chain_name: string;
+  call_count: number;
+  avg_latency_ms: number | null;
+  p95_latency_ms: number | null;
+  median_latency_ms: number | null;
+}
+
+export interface ChainStatsSummary {
+  chains: ChainStatsSummaryItem[];
+}
+
 export const chainApi = {
   list: (agentId: string) => api.get<Chain[]>(`/agents/${agentId}/chains/`),
 
@@ -35,6 +47,9 @@ export const chainApi = {
     const query = qs.toString() ? `?${qs.toString()}` : '';
     return api.get<ChainStats>(`/agents/${agentId}/chains/${chainId}/stats${query}`);
   },
+
+  getChainStatsSummary: (agentId: string) =>
+    api.get<ChainStatsSummary>(`/agents/${agentId}/chains/stats/summary`),
 
   getLogs: (agentId: string, chainId: string, params?: { limit?: number; offset?: number }) => {
     const qs = new URLSearchParams();

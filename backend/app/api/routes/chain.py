@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import get_chain_reader_auth, get_current_user
 from app.core.database import get_db
 from app.models.user import User
-from app.schemas.chain import ChainCallLogResponse, ChainCreate, ChainLogListResponse, ChainReorderRequest, ChainResponse, ChainStatsResponse, ChainTimeseriesResponse, ChainUpdate
+from app.schemas.chain import ChainCallLogResponse, ChainCreate, ChainLatencySummaryResponse, ChainLogListResponse, ChainReorderRequest, ChainResponse, ChainStatsResponse, ChainTimeseriesResponse, ChainUpdate
 from app.services import agent as agent_service
 from app.services import chain as chain_service
 
@@ -46,6 +46,17 @@ async def _get_owned_agent(
     if agent.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Only the owner can modify chains.")
     return agent
+
+
+@router.get("/stats/summary", response_model=ChainLatencySummaryResponse)
+async def get_chains_latency_summary(
+    agent_id: uuid.UUID,
+    auth: User | uuid.UUID = Depends(get_chain_reader_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_readable_agent(agent_id, auth, db)
+    chains = await chain_service.get_chains_latency_summary(db, agent_id)
+    return ChainLatencySummaryResponse(chains=chains)
 
 
 @router.get("/", response_model=list[ChainResponse])
