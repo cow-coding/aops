@@ -123,17 +123,16 @@ export default function AgentStatsTab() {
   const [timeseriesError, setTimeseriesError] = useState<string | null>(null);
   const [timeseriesParams, setTimeseriesParams] = useState<TimeseriesParams>({ range: '1h' });
 
-  useEffect(() => {
-    agentApi.getStats(agent.id)
+  function loadTimeseries(params: TimeseriesParams) {
+    setTimeseriesParams(params);
+    setStatsLoading(true);
+    setStatsError(null);
+    setTimeseriesLoading(true);
+    setTimeseriesError(null);
+    agentApi.getStats(agent.id, params)
       .then(setStats)
       .catch((err: Error) => setStatsError(err.message))
       .finally(() => setStatsLoading(false));
-  }, [agent.id]);
-
-  function loadTimeseries(params: TimeseriesParams) {
-    setTimeseriesParams(params);
-    setTimeseriesLoading(true);
-    setTimeseriesError(null);
     agentApi.getTimeseries(agent.id, params)
       .then(setTimeseries)
       .catch((err: Error) => setTimeseriesError(err.message))

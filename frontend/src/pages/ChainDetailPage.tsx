@@ -669,8 +669,14 @@ export default function ChainDetailPage() {
   const loadTimeseries = useCallback((params: TimeseriesParams) => {
     if (!agentId || !chainId) return;
     setTimeseriesParams(params);
+    setStatsLoading(true);
+    setStatsError(null);
     setTimeseriesLoading(true);
     setTimeseriesError(null);
+    chainApi.getStats(agentId, chainId, params)
+      .then(setStats)
+      .catch((err: Error) => setStatsError(err.message))
+      .finally(() => { setStatsLoading(false); setStatsLoaded(true); });
     chainApi.getTimeseries(agentId, chainId, params)
       .then(setTimeseries)
       .catch((err: Error) => setTimeseriesError(err.message))
@@ -977,7 +983,6 @@ export default function ChainDetailPage() {
           setEditing(false);
           setForm({});
           setSaveError(null);
-          if (v === 2 && !statsLoaded && !statsLoading) loadStats();
           if (v === 2) loadTimeseries(timeseriesParams);
           if (v === 3 && !logsLoaded && !logsLoading) loadLogs();
         }}>

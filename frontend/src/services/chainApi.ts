@@ -28,8 +28,13 @@ export const chainApi = {
   reorder: (agentId: string, chainIds: string[]) =>
     api.patch<void>(`/agents/${agentId}/chains/reorder`, { chain_ids: chainIds }),
 
-  getStats: (agentId: string, chainId: string) =>
-    api.get<ChainStats>(`/agents/${agentId}/chains/${chainId}/stats`),
+  getStats: (agentId: string, chainId: string, params?: { started_after?: string; started_before?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.started_after) qs.set('started_after', params.started_after);
+    if (params?.started_before) qs.set('started_before', params.started_before);
+    const query = qs.toString() ? `?${qs.toString()}` : '';
+    return api.get<ChainStats>(`/agents/${agentId}/chains/${chainId}/stats${query}`);
+  },
 
   getLogs: (agentId: string, chainId: string, params?: { limit?: number; offset?: number }) => {
     const qs = new URLSearchParams();

@@ -15,7 +15,13 @@ export const agentApi = {
 
   delete: (id: string) => api.delete<void>(`/agents/${id}`),
 
-  getStats: (id: string) => api.get<AgentStats>(`/agents/${id}/stats`),
+  getStats: (id: string, params?: { started_after?: string; started_before?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.started_after) qs.set('started_after', params.started_after);
+    if (params?.started_before) qs.set('started_before', params.started_before);
+    const query = qs.toString() ? `?${qs.toString()}` : '';
+    return api.get<AgentStats>(`/agents/${id}/stats${query}`);
+  },
 
   getTimeseries: (id: string, params: TimeseriesParams) => {
     const qs = new URLSearchParams();
