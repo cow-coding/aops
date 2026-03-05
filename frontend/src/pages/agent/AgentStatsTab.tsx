@@ -9,6 +9,7 @@ import {
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import NorthEastIcon from '@mui/icons-material/NorthEast';
 import {
   BarChart, Bar, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid,
   Tooltip as RechartsTooltip, ResponsiveContainer, Legend, ReferenceArea,
@@ -26,7 +27,12 @@ function formatXAxisTick(bucket: string, granularity: Granularity): string {
 }
 
 function formatBucketLabel(d: Date): string {
-  return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const y = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const h = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `${y}/${mo}/${day} ${h}:${min}`;
 }
 
 function LatencyTooltip({ active, payload, label }: { active?: boolean; payload?: { dataKey: string; value: number | null }[]; label?: string }) {
@@ -201,8 +207,12 @@ export default function AgentStatsTab() {
                   py: 1.75,
                   background: colors.canvas.subtle,
                   cursor: clickTo ? 'pointer' : 'default',
-                  transition: 'border-color 0.15s',
-                  '&:hover': clickTo ? { borderColor: colors.border.default } : {},
+                  transition: 'border-color 0.15s, background-color 0.15s',
+                  '&:hover': clickTo ? {
+                    borderColor: 'rgba(248, 81, 73, 0.45)',
+                    backgroundColor: 'rgba(248, 81, 73, 0.05)',
+                    '& .card-link-icon': { color: '#F85149' },
+                  } : {},
                 }}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
@@ -214,9 +224,12 @@ export default function AgentStatsTab() {
                       <InfoOutlinedIcon sx={{ fontSize: 13, color: '#6E7681', ml: 0.5, cursor: 'help', verticalAlign: 'middle' }} />
                     </Tooltip>
                   )}
+                  {clickTo && (
+                    <NorthEastIcon className="card-link-icon" sx={{ fontSize: 11, color: colors.fg.subtle, ml: 0.5, transition: 'color 0.15s' }} />
+                  )}
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5 }}>
-                  <Typography sx={{ fontSize: '1.125rem', fontWeight: 600, color: colors.fg.default }}>
+                  <Typography sx={{ fontSize: '1.125rem', fontWeight: 600, color: clickTo ? '#F85149' : colors.fg.default }}>
                     {value}
                   </Typography>
                   <TrendBadge pct={trendPct} invert={invert} />
@@ -266,7 +279,7 @@ export default function AgentStatsTab() {
                       contentStyle={{ background: colors.canvas.overlay, border: `1px solid ${colors.border.default}`, borderRadius: 6, fontSize: 12 }}
                       labelStyle={{ color: colors.fg.muted }}
                       itemStyle={{ color: '#5E6AD2' }}
-                      labelFormatter={(v) => new Date(v as string).toLocaleString()}
+                      labelFormatter={(v) => formatBucketLabel(new Date(v as string))}
                       formatter={(v) => [v, 'Runs']}
                     />
                     <Bar dataKey="run_count" fill="#5E6AD2" radius={[3, 3, 0, 0]} maxBarSize={32} />
