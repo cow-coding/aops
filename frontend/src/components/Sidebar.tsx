@@ -220,13 +220,13 @@ export default function Sidebar() {
         {user && (
           <>
             <Divider />
-            <Tooltip title="Sign out" placement="right">
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              {/* Email → profile page */}
               <Box
-                onClick={handleLogout}
+                onClick={() => navigate('/profile')}
                 sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
+                  flex: 1,
+                  minWidth: 0,
                   px: 1.5,
                   py: 1,
                   cursor: 'pointer',
@@ -234,11 +234,10 @@ export default function Sidebar() {
                   transition: 'background-color 0.1s ease, color 0.1s ease',
                   '&:hover': {
                     backgroundColor: colors.canvas.elevated,
-                    color: colors.danger.fg,
+                    color: colors.fg.default,
                   },
                 }}
               >
-                <LogoutOutlinedIcon sx={{ fontSize: 14 }} />
                 <Typography
                   sx={{
                     fontSize: '0.8125rem',
@@ -246,13 +245,34 @@ export default function Sidebar() {
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
-                    flex: 1,
                   }}
                 >
-                  {user.email || 'Sign out'}
+                  {user.email}
                 </Typography>
               </Box>
-            </Tooltip>
+              {/* Logout icon */}
+              <Tooltip title="Sign out" placement="right">
+                <Box
+                  onClick={handleLogout}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    px: 1.25,
+                    py: 1,
+                    flexShrink: 0,
+                    cursor: 'pointer',
+                    color: colors.fg.muted,
+                    transition: 'background-color 0.1s ease, color 0.1s ease',
+                    '&:hover': {
+                      backgroundColor: colors.canvas.elevated,
+                      color: colors.danger.fg,
+                    },
+                  }}
+                >
+                  <LogoutOutlinedIcon sx={{ fontSize: 14 }} />
+                </Box>
+              </Tooltip>
+            </Box>
           </>
         )}
       </Box>

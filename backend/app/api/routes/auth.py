@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.auth import get_current_user
 from app.core.database import get_db
 from app.core.limiter import limiter
 from app.core.security import (
@@ -9,6 +10,7 @@ from app.core.security import (
     create_refresh_token,
     decode_token,
 )
+from app.models.user import User
 from app.schemas.auth import (
     AccessTokenResponse,
     LoginRequest,
@@ -16,7 +18,7 @@ from app.schemas.auth import (
     RegisterRequest,
     TokenResponse,
 )
-from app.schemas.user import UserResponse
+from app.schemas.user import UserResponse, UserUpdateRequest
 from app.services import auth as auth_service
 from app.services import user as user_service
 
@@ -85,3 +87,17 @@ async def logout(data: RefreshRequest, db: AsyncSession = Depends(get_db)):
     stored = await auth_service.find_refresh_token(db, data.refresh_token)
     if stored is not None:
         await auth_service.revoke_refresh_token(db, stored)
+
+
+@router.get("/me", response_model=UserResponse)
+async def get_me(current_user: User = Depends(get_current_user)):
+    return current_user
+
+
+@router.patch("/me", response_model=UserResponse)
+async def update_me(
+    data: UserUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await user_service.update_user(db, current_user, data)

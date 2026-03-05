@@ -1,4 +1,5 @@
 import type { AccessTokenResponse, TokenResponse, User } from '../types/auth';
+import { api } from './api';
 
 const API_BASE = '/api/v1';
 
@@ -39,4 +40,8 @@ export const authApi = {
 
   logout: (refreshToken: string) =>
     authRequest<void>('/auth/logout', { refresh_token: refreshToken }),
+
+  getMe: () => api.get<User>('/auth/me'),
+
+  updateMe: (data: { name: string }) => api.patch<User>('/auth/me', data),
 };

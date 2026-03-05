@@ -41,15 +41,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .refresh(storedRefreshToken)
       .then(({ access_token }) => {
         setAccessToken(access_token);
-        // Decode user_id from JWT payload (base64 middle segment)
-        try {
-          const payload = JSON.parse(atob(access_token.split('.')[1]));
-          setUser({ id: payload.sub, email: '', name: '', created_at: '' });
-        } catch {
-          // Payload decode failed — still mark as authenticated so we don't redirect to /login
-          setUser({ id: '', email: '', name: '', created_at: '' });
-        }
+        return authApi.getMe();
       })
+      .then(setUser)
       .catch(() => {
         localStorage.removeItem('refresh_token');
         setAccessToken(null);
@@ -61,13 +55,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { access_token, refresh_token } = await authApi.login({ email, password });
     localStorage.setItem('refresh_token', refresh_token);
     setAccessToken(access_token);
-    // Decode user info from token payload
-    try {
-      const payload = JSON.parse(atob(access_token.split('.')[1]));
-      setUser({ id: payload.sub, email, name: '', created_at: '' });
-    } catch {
-      setUser({ id: '', email, name: '', created_at: '' });
-    }
+    const me = await authApi.getMe();
+    setUser(me);
   };
 
   const register = async (email: string, password: string, name: string) => {

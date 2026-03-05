@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import hash_password, verify_password
 from app.models.user import User
 from app.schemas.auth import RegisterRequest
+from app.schemas.user import UserUpdateRequest
 
 
 async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
@@ -24,6 +25,14 @@ async def create_user(db: AsyncSession, data: RegisterRequest) -> User:
         name=data.name,
     )
     db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+async def update_user(db: AsyncSession, user: User, data: UserUpdateRequest) -> User:
+    if data.name is not None:
+        user.name = data.name
     await db.commit()
     await db.refresh(user)
     return user

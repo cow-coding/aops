@@ -14,6 +14,7 @@ import AgentTracesTab from './pages/agent/AgentTracesTab';
 import ChainCreatePage from './pages/ChainCreatePage';
 import ChainDetailPage from './pages/ChainDetailPage';
 import GroupsPage from './pages/GroupsPage';
+import ProfilePage from './pages/ProfilePage';
 import TracesPage from './pages/TracesPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -73,6 +74,7 @@ export default function App() {
 
         <Route path="/groups" element={<GroupsPage />} />
         <Route path="/traces" element={<TracesPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
       </Route>
     </Routes>
   );
