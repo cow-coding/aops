@@ -25,11 +25,7 @@ import type { ApiKey, ApiKeyCreateResponse } from '../../types/apiKey';
 import type { AgentDetailContext } from '../../types/agentDetail';
 import { apiKeyApi } from '../../services/apiKeyApi';
 import { monoFontFamily } from '../../theme';
-
-function formatDateOnly(dateStr: string): string {
-  const d = new Date(dateStr);
-  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
-}
+import { formatDateOnly } from '../../utils/date';
 
 // ── Create Key Dialog ────────────────────────────────────────────────────────
 

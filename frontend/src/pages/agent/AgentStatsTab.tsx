@@ -19,20 +19,12 @@ import type { AgentStats, AgentTimeseries } from '../../types/agentStats';
 import { agentApi } from '../../services/agentApi';
 import TimeRangeSelector, { granularityFromParams } from '../../components/TimeRangeSelector';
 import type { TimeseriesParams, Granularity } from '../../components/TimeRangeSelector';
+import { formatBucketLabel } from '../../utils/date';
 
 function formatXAxisTick(bucket: string, granularity: Granularity): string {
   const d = new Date(bucket);
   if (granularity === '5m' || granularity === '1h') return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   return `${d.getMonth() + 1}/${d.getDate()}`;
-}
-
-function formatBucketLabel(d: Date): string {
-  const y = d.getFullYear();
-  const mo = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  const h = String(d.getHours()).padStart(2, '0');
-  const min = String(d.getMinutes()).padStart(2, '0');
-  return `${y}/${mo}/${day} ${h}:${min}`;
 }
 
 function LatencyTooltip({ active, payload, label }: { active?: boolean; payload?: { dataKey: string; value: number | null }[]; label?: string }) {

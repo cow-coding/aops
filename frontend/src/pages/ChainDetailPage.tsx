@@ -50,6 +50,7 @@ import { chainApi } from '../services/chainApi';
 import { monoFontFamily } from '../theme';
 import TimeRangeSelector, { granularityFromParams } from '../components/TimeRangeSelector';
 import type { TimeseriesParams } from '../components/TimeRangeSelector';
+import { formatDateTime, formatBucketLabel } from '../utils/date';
 
 function escapeHtml(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -107,15 +108,6 @@ function highlightJson(formatted: string, mode: 'dark' | 'light' = 'dark'): stri
   );
 }
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
 
 function MarkdownRenderer({ content }: { content: string }) {
   const theme = useTheme();
@@ -349,7 +341,7 @@ function VersionRow({
             flexShrink: 0,
           }}
         >
-          {formatDate(version.created_at)}
+          {formatDateTime(version.created_at)}
         </Typography>
 
         {isLatest && (
@@ -514,14 +506,6 @@ function formatXAxisTick(ts: string, granularity: import('../components/TimeRang
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
-function formatBucketLabel(d: Date): string {
-  const y = d.getFullYear();
-  const mo = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  const h = String(d.getHours()).padStart(2, '0');
-  const min = String(d.getMinutes()).padStart(2, '0');
-  return `${y}/${mo}/${day} ${h}:${min}`;
-}
 
 function LatencyTooltip({ active, payload, label }: { active?: boolean; payload?: { dataKey: string; value: number | null }[]; label?: string }) {
   if (!active || !payload?.length) return null;
@@ -1220,7 +1204,7 @@ export default function ChainDetailPage() {
                   },
                   {
                     label: 'Last Called',
-                    value: stats.last_called_at ? formatDate(stats.last_called_at) : '—',
+                    value: stats.last_called_at ? formatDateTime(stats.last_called_at) : '—',
                     trendPct: null,
                     invert: false,
                   },
@@ -1543,7 +1527,7 @@ export default function ChainDetailPage() {
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%', mr: 1 }}>
                       <Typography sx={{ fontSize: '0.8125rem', color: colors.fg.default, flex: 1 }}>
-                        {formatDate(log.called_at)}
+                        {formatDateTime(log.called_at)}
                       </Typography>
                       {isError && (
                         <Box sx={{
