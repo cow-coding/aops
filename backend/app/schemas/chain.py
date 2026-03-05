@@ -41,6 +41,29 @@ class ChainCallLogResponse(BaseModel):
     output: str | None
 
 
+class ChainLogListResponse(BaseModel):
+    items: list[ChainCallLogResponse]
+    total: int
+
+
+class TimeseriesBucket(BaseModel):
+    ts: datetime
+    call_count: int
+    avg_latency_ms: float | None
+    p95_latency_ms: float | None
+
+
+class TimeseriesTrend(BaseModel):
+    calls_pct: float | None
+    avg_latency_pct: float | None
+    p95_latency_pct: float | None
+
+
+class ChainTimeseriesResponse(BaseModel):
+    buckets: list[TimeseriesBucket]
+    trend: TimeseriesTrend
+
+
 class ChainReorderRequest(BaseModel):
     chain_ids: list[uuid.UUID] = Field(min_length=1)
 

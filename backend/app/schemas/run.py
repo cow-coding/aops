@@ -29,6 +29,43 @@ class AgentRunResponse(BaseModel):
     chain_call_count: int
 
 
+class ChainCallLogDetail(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    chain_name: str
+    call_order: int
+    latency_ms: int | None
+    called_at: datetime
+    input: str | None
+    output: str | None
+
+
+class RunSummary(BaseModel):
+    id: uuid.UUID
+    agent_id: uuid.UUID
+    agent_name: str
+    started_at: datetime
+    ended_at: datetime | None
+    duration_ms: int | None
+    chain_names: list[str]
+
+
+class RunListResponse(BaseModel):
+    items: list[RunSummary]
+    total: int
+
+
+class RunDetail(BaseModel):
+    id: uuid.UUID
+    agent_id: uuid.UUID
+    agent_name: str
+    started_at: datetime
+    ended_at: datetime | None
+    duration_ms: int | None
+    chain_calls: list[ChainCallLogDetail]
+
+
 class ChainFlowEntry(BaseModel):
     chain_name: str
     call_count: int

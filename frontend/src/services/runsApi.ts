@@ -7,6 +7,13 @@ export interface RunsListParams {
   started_before?: string;
   limit?: number;
   offset?: number;
+  source_chain?: string;
+  target_chain?: string;
+}
+
+export interface RunsListResponse {
+  items: RunSummary[];
+  total: number;
 }
 
 export const runsApi = {
@@ -17,8 +24,10 @@ export const runsApi = {
     if (params?.started_before) qs.set('started_before', params.started_before);
     if (params?.limit !== undefined) qs.set('limit', String(params.limit));
     if (params?.offset !== undefined) qs.set('offset', String(params.offset));
+    if (params?.source_chain) qs.set('source_chain', params.source_chain);
+    if (params?.target_chain) qs.set('target_chain', params.target_chain);
     const query = qs.toString() ? `?${qs.toString()}` : '';
-    return api.get<RunSummary[]>(`/runs/${query}`);
+    return api.get<RunsListResponse>(`/runs/${query}`);
   },
 
   getDetail: (runId: string) => api.get<RunDetail>(`/runs/${runId}`),

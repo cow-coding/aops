@@ -1,5 +1,5 @@
 import { api } from './api';
-import type { Chain, ChainCreateRequest, ChainUpdateRequest, ChainVersion, ChainStats, ChainLog } from '../types/chain';
+import type { Chain, ChainCreateRequest, ChainUpdateRequest, ChainVersion, ChainStats, ChainLog, ChainTimeseries } from '../types/chain';
 
 export const chainApi = {
   list: (agentId: string) => api.get<Chain[]>(`/agents/${agentId}/chains/`),
@@ -36,6 +36,9 @@ export const chainApi = {
     if (params?.limit !== undefined) qs.set('limit', String(params.limit));
     if (params?.offset !== undefined) qs.set('offset', String(params.offset));
     const query = qs.toString() ? `?${qs.toString()}` : '';
-    return api.get<ChainLog[]>(`/agents/${agentId}/chains/${chainId}/logs${query}`);
+    return api.get<{ items: ChainLog[]; total: number }>(`/agents/${agentId}/chains/${chainId}/logs${query}`);
   },
+
+  getTimeseries: (agentId: string, chainId: string, range: '1h' | '24h' | '7d' | '30d') =>
+    api.get<ChainTimeseries>(`/agents/${agentId}/chains/${chainId}/stats/timeseries?range=${range}`),
 };
