@@ -167,6 +167,25 @@ _STEP: dict[str, timedelta] = {
     "1d":   timedelta(days=1),
 }
 
+_GRANULARITY_MAP: dict[str, str] = {
+    "5m": "5min",
+    "1h": "1h",
+    "6h": "6h",
+    "1d": "1d",
+}
+
+
+def _auto_granularity(delta: timedelta) -> str:
+    hours = delta.total_seconds() / 3600
+    if hours <= 6:
+        return "5min"
+    elif hours <= 72:
+        return "1h"
+    elif hours <= 336:
+        return "6h"
+    else:
+        return "1d"
+
 
 def _truncate_dt(dt: datetime, trunc: str) -> datetime:
     if trunc == "5min":
@@ -207,17 +226,29 @@ def _pct_change(curr: float | None, prev: float | None) -> float | None:
 async def get_chain_timeseries(
     db: AsyncSession,
     chain_id: uuid.UUID,
-    range_: str,
+    range_: str = "24h",
+    started_after: datetime | None = None,
+    started_before: datetime | None = None,
+    granularity: str | None = None,
 ) -> dict:
-    cfg = _RANGE_CONFIG[range_]
     now = datetime.now(timezone.utc)
-    trunc = cfg["trunc"]
-    step = _STEP[trunc]
 
-    # Align period start to bucket boundary
-    start_ts = _truncate_dt(now - cfg["delta"], trunc)
-    end_ts = start_ts + step * cfg["count"]
-    prev_start = start_ts - cfg["delta"]
+    if started_after is not None and started_before is not None:
+        delta = started_before - started_after
+        trunc = _GRANULARITY_MAP[granularity] if granularity else _auto_granularity(delta)
+        step = _STEP[trunc]
+        start_ts = _truncate_dt(started_after, trunc)
+        end_ts = started_before
+        count = max(1, -(-int((end_ts - start_ts).total_seconds()) // int(step.total_seconds())))
+        prev_start = start_ts - delta
+    else:
+        cfg = _RANGE_CONFIG[range_]
+        trunc = cfg["trunc"]
+        step = _STEP[trunc]
+        start_ts = _truncate_dt(now - cfg["delta"], trunc)
+        end_ts = start_ts + step * cfg["count"]
+        count = cfg["count"]
+        prev_start = start_ts - cfg["delta"]
 
     bucket_col = _bucket_expr(trunc)
 
@@ -259,7 +290,7 @@ async def get_chain_timeseries(
 
     # Fill all expected buckets (empty → zeros/None)
     buckets = []
-    for i in range(cfg["count"]):
+    for i in range(count):
         ts = start_ts + step * i
         data = bucket_map.get(ts, {"call_count": 0, "avg_latency_ms": None, "p95_latency_ms": None})
         buckets.append({"ts": ts, **data})

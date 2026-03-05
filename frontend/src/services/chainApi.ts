@@ -39,6 +39,12 @@ export const chainApi = {
     return api.get<{ items: ChainLog[]; total: number }>(`/agents/${agentId}/chains/${chainId}/logs${query}`);
   },
 
-  getTimeseries: (agentId: string, chainId: string, range: '1h' | '24h' | '7d' | '30d') =>
-    api.get<ChainTimeseries>(`/agents/${agentId}/chains/${chainId}/stats/timeseries?range=${range}`),
+  getTimeseries: (agentId: string, chainId: string, params: import('../components/TimeRangeSelector').TimeseriesParams) => {
+    const qs = new URLSearchParams();
+    if (params.range) qs.set('range', params.range);
+    if (params.started_after) qs.set('started_after', params.started_after);
+    if (params.started_before) qs.set('started_before', params.started_before);
+    if (params.granularity) qs.set('granularity', params.granularity);
+    return api.get<ChainTimeseries>(`/agents/${agentId}/chains/${chainId}/stats/timeseries?${qs.toString()}`);
+  },
 };

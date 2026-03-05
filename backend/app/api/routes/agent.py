@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -74,6 +75,9 @@ async def get_agent_stats(
 async def get_agent_timeseries(
     agent_id: uuid.UUID,
     range: str = Query(default="24h", pattern="^(1h|24h|7d|30d)$"),
+    started_after: datetime | None = Query(default=None),
+    started_before: datetime | None = Query(default=None),
+    granularity: str | None = Query(default=None, pattern="^(5m|1h|6h|1d)$"),
     auth: User | uuid.UUID = Depends(get_chain_reader_auth),
     db: AsyncSession = Depends(get_db),
 ):
@@ -86,7 +90,9 @@ async def get_agent_timeseries(
     else:
         if not await agent_service.can_access_agent(db, agent, auth.id):
             raise HTTPException(status_code=403, detail="Access denied.")
-    return await agent_service.get_agent_timeseries(db, agent_id, range)
+    return await agent_service.get_agent_timeseries(
+        db, agent_id, range, started_after, started_before, granularity
+    )
 
 
 @router.patch("/{agent_id}", response_model=AgentResponse)

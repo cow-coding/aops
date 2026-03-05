@@ -23,8 +23,7 @@ import {
   Tab,
   Tabs,
   TextField,
-  ToggleButton,
-  ToggleButtonGroup,
+
   Tooltip,
   Typography,
 } from '@mui/material';
@@ -49,6 +48,8 @@ import type { Chain, ChainUpdateRequest, ChainVersion, ChainStats, ChainLog, Cha
 import { agentApi } from '../services/agentApi';
 import { chainApi } from '../services/chainApi';
 import { monoFontFamily } from '../theme';
+import TimeRangeSelector, { granularityFromParams } from '../components/TimeRangeSelector';
+import type { TimeseriesParams } from '../components/TimeRangeSelector';
 
 function escapeHtml(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -507,13 +508,9 @@ function VersionRow({
   );
 }
 
-type TimeRange = '1h' | '24h' | '7d' | '30d';
-
-
-function formatXAxisTick(ts: string, range: TimeRange): string {
+function formatXAxisTick(ts: string, granularity: import('../components/TimeRangeSelector').Granularity): string {
   const d = new Date(ts);
-  if (range === '1h') return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  if (range === '24h') return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (granularity === '5m' || granularity === '1h') return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
@@ -643,7 +640,7 @@ export default function ChainDetailPage() {
   const [statsLoaded, setStatsLoaded] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
 
-  const [timeRange, setTimeRange] = useState<TimeRange>('1h');
+  const [timeseriesParams, setTimeseriesParams] = useState<TimeseriesParams>({ range: '1h' });
   const [timeseries, setTimeseries] = useState<ChainTimeseries | null>(null);
   const [timeseriesLoading, setTimeseriesLoading] = useState(false);
   const [timeseriesError, setTimeseriesError] = useState<string | null>(null);
@@ -669,11 +666,12 @@ export default function ChainDetailPage() {
       .finally(() => { setStatsLoading(false); setStatsLoaded(true); });
   }, [agentId, chainId]);
 
-  const loadTimeseries = useCallback((range: TimeRange) => {
+  const loadTimeseries = useCallback((params: TimeseriesParams) => {
     if (!agentId || !chainId) return;
+    setTimeseriesParams(params);
     setTimeseriesLoading(true);
     setTimeseriesError(null);
-    chainApi.getTimeseries(agentId, chainId, range)
+    chainApi.getTimeseries(agentId, chainId, params)
       .then(setTimeseries)
       .catch((err: Error) => setTimeseriesError(err.message))
       .finally(() => setTimeseriesLoading(false));
@@ -980,7 +978,7 @@ export default function ChainDetailPage() {
           setForm({});
           setSaveError(null);
           if (v === 2 && !statsLoaded && !statsLoading) loadStats();
-          if (v === 2) loadTimeseries(timeRange);
+          if (v === 2) loadTimeseries(timeseriesParams);
           if (v === 3 && !logsLoaded && !logsLoading) loadLogs();
         }}>
           <Tab label="Prompt" />
@@ -1247,21 +1245,9 @@ export default function ChainDetailPage() {
                 ))}
               </Box>
 
-              {/* ── Time Range Toggle ── */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <ToggleButtonGroup
-                  size="small"
-                  exclusive
-                  value={timeRange}
-                  onChange={(_, v) => { if (v) { setTimeRange(v as TimeRange); loadTimeseries(v as TimeRange); } }}
-                >
-                  {(['1h', '24h', '7d', '30d'] as TimeRange[]).map((r) => (
-                    <ToggleButton key={r} value={r} sx={{ fontSize: '0.75rem', px: 1.5, textTransform: 'none' }}>
-                      {r}
-                    </ToggleButton>
-                  ))}
-                </ToggleButtonGroup>
-                {timeseriesLoading && <CircularProgress size={14} sx={{ ml: 1 }} color="inherit" />}
+              {/* ── Time Range Selector ── */}
+              <Box sx={{ mb: 2 }}>
+                <TimeRangeSelector onChange={loadTimeseries} loading={timeseriesLoading} />
               </Box>
 
               {/* ── Charts ── */}
@@ -1284,7 +1270,7 @@ export default function ChainDetailPage() {
                         <CartesianGrid vertical={false} stroke={colors.border.muted} />
                         <XAxis
                           dataKey="ts"
-                          tickFormatter={(v) => formatXAxisTick(v as string, timeRange)}
+                          tickFormatter={(v) => formatXAxisTick(v as string, granularityFromParams(timeseriesParams))}
                           tick={{ fill: colors.fg.muted, fontSize: 10 }}
                           axisLine={false}
                           tickLine={false}
@@ -1353,7 +1339,7 @@ export default function ChainDetailPage() {
                             <CartesianGrid vertical={false} stroke={colors.border.muted} strokeDasharray="2 4" />
                             <XAxis
                               dataKey="ts"
-                              tickFormatter={(v) => formatXAxisTick(v as string, timeRange)}
+                              tickFormatter={(v) => formatXAxisTick(v as string, granularityFromParams(timeseriesParams))}
                               tick={{ fill: colors.fg.muted, fontSize: 10 }}
                               axisLine={false}
                               tickLine={false}
@@ -1516,6 +1502,7 @@ export default function ChainDetailPage() {
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
               {logs.map((log) => {
                 const isNew = newLogIds.has(log.id);
+                const isError = log.status === 'error';
                 const inputFmt = log.input !== null ? tryFormatJson(log.input) : null;
                 const outputFmt = log.output !== null ? tryFormatJson(log.output) : null;
                 return (
@@ -1524,12 +1511,20 @@ export default function ChainDetailPage() {
                   disableGutters
                   elevation={0}
                   sx={{
-                    border: isNew ? '1px solid rgba(56,139,253,0.5)' : `1px solid ${colors.border.muted}`,
+                    border: isError
+                      ? '1px solid rgba(248, 81, 73, 0.45)'
+                      : isNew ? '1px solid rgba(56,139,253,0.5)' : `1px solid ${colors.border.muted}`,
                     borderRadius: '8px !important',
-                    background: isNew ? 'rgba(56,139,253,0.07)' : colors.canvas.subtle,
+                    background: isError
+                      ? 'rgba(248, 81, 73, 0.05)'
+                      : isNew ? 'rgba(56,139,253,0.07)' : colors.canvas.subtle,
                     transition: 'border-color 1s ease, background-color 1s ease',
                     '&:before': { display: 'none' },
-                    '&.Mui-expanded': { borderColor: isNew ? 'rgba(56,139,253,0.5)' : colors.border.default },
+                    '&.Mui-expanded': {
+                      borderColor: isError
+                        ? 'rgba(248, 81, 73, 0.7)'
+                        : isNew ? 'rgba(56,139,253,0.5)' : colors.border.default,
+                    },
                   }}
                 >
                   <AccordionSummary
@@ -1540,14 +1535,44 @@ export default function ChainDetailPage() {
                       <Typography sx={{ fontSize: '0.8125rem', color: colors.fg.default, flex: 1 }}>
                         {formatDate(log.called_at)}
                       </Typography>
+                      {isError && (
+                        <Box sx={{
+                          px: 0.75, py: 0.125, borderRadius: '4px',
+                          background: 'rgba(248, 81, 73, 0.15)',
+                          border: '1px solid rgba(248, 81, 73, 0.4)',
+                          fontSize: '0.625rem', fontWeight: 600, color: '#F85149',
+                          lineHeight: 1.4, letterSpacing: '0.04em', flexShrink: 0,
+                        }}>
+                          error
+                        </Box>
+                      )}
                       <Typography sx={{ fontSize: '0.75rem', color: colors.fg.subtle, flexShrink: 0 }}>
                         {log.latency_ms !== null ? `${log.latency_ms}ms` : '—'}
                       </Typography>
                     </Box>
                   </AccordionSummary>
-                  {(log.input !== null || log.output !== null) && (
+                  {(log.input !== null || log.output !== null || isError) && (
                     <AccordionDetails sx={{ px: 2, pt: 0, pb: 1.5 }}>
                       <Divider sx={{ mb: 1.5 }} />
+                      {isError && log.error_message && (
+                        <Box sx={{
+                          mb: 1.5, px: 1.25, py: 1,
+                          borderRadius: '6px',
+                          background: 'rgba(248, 81, 73, 0.08)',
+                          border: '1px solid rgba(248, 81, 73, 0.3)',
+                          borderLeft: '3px solid #F85149',
+                        }}>
+                          <Typography sx={{ fontSize: '0.6875rem', fontWeight: 600, color: '#F85149', mb: 0.5, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                            Error
+                          </Typography>
+                          <Typography component="pre" sx={{
+                            fontFamily: monoFontFamily, fontSize: '0.75rem',
+                            color: '#F85149', whiteSpace: 'pre-wrap', wordBreak: 'break-word', m: 0, opacity: 0.9,
+                          }}>
+                            {log.error_message}
+                          </Typography>
+                        </Box>
+                      )}
                       {log.input !== null && (
                         <Box sx={{ mb: log.output !== null ? 1.5 : 0 }}>
                           <Box sx={{

@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.exc import IntegrityError
@@ -105,6 +106,9 @@ async def get_chain_timeseries(
     agent_id: uuid.UUID,
     chain_id: uuid.UUID,
     range: str = Query(default="24h", pattern="^(1h|24h|7d|30d)$"),
+    started_after: datetime | None = Query(default=None),
+    started_before: datetime | None = Query(default=None),
+    granularity: str | None = Query(default=None, pattern="^(5m|1h|6h|1d)$"),
     auth: User | uuid.UUID = Depends(get_chain_reader_auth),
     db: AsyncSession = Depends(get_db),
 ):
@@ -112,7 +116,9 @@ async def get_chain_timeseries(
     chain = await chain_service.get_chain(db, chain_id)
     if not chain or chain.agent_id != agent_id:
         raise HTTPException(status_code=404, detail="Chain not found")
-    return await chain_service.get_chain_timeseries(db, chain_id, range)
+    return await chain_service.get_chain_timeseries(
+        db, chain_id, range, started_after, started_before, granularity
+    )
 
 
 @router.get("/{chain_id}/logs", response_model=ChainLogListResponse)
