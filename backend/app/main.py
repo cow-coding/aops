@@ -1,5 +1,11 @@
 import logging
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s %(asctime)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
@@ -9,6 +15,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.limiter import limiter
+from app.middleware.logging import RequestLoggingMiddleware
 
 _DEFAULT_SECRET_KEY = "change-me-in-production-use-a-long-random-string"
 if settings.SECRET_KEY == _DEFAULT_SECRET_KEY:
@@ -26,6 +33,8 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
+
+app.add_middleware(RequestLoggingMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
