@@ -623,18 +623,20 @@ export default function TracesPage({ agentId: fixedAgentId, showStackTrace = fal
           </Select>
         )}
 
-        <ToggleButtonGroup
-          size="small"
-          value={timeRange}
-          exclusive
-          onChange={(_, v) => { if (v) setTimeRange(v as TimeRange); }}
-        >
-          {(['1h', '24h', '7d'] as TimeRange[]).map((r) => (
-            <ToggleButton key={r} value={r} sx={{ fontSize: '0.75rem', px: 1.5, textTransform: 'none' }}>
-              Last {r}
-            </ToggleButton>
-          ))}
-        </ToggleButtonGroup>
+        {!fixedAgentId && (
+          <ToggleButtonGroup
+            size="small"
+            value={timeRange}
+            exclusive
+            onChange={(_, v) => { if (v) setTimeRange(v as TimeRange); }}
+          >
+            {(['1h', '24h', '7d'] as TimeRange[]).map((r) => (
+              <ToggleButton key={r} value={r} sx={{ fontSize: '0.75rem', px: 1.5, textTransform: 'none' }}>
+                Last {r}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+        )}
       </Box>
 
       {/* Active filter chips */}
