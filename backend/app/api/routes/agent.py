@@ -1,12 +1,12 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_chain_reader_auth, get_current_user
 from app.core.database import get_db
 from app.models.user import User
-from app.schemas.agent import AgentCreate, AgentResponse, AgentUpdate
+from app.schemas.agent import AgentCreate, AgentResponse, AgentStatsResponse, AgentTimeseriesResponse, AgentUpdate
 from app.services import agent as agent_service
 
 router = APIRouter(prefix="/agents", tags=["agents"])
@@ -50,6 +50,43 @@ async def get_agent(
         if not await agent_service.can_access_agent(db, agent, auth.id):
             raise HTTPException(status_code=403, detail="Access denied.")
     return agent
+
+
+@router.get("/{agent_id}/stats", response_model=AgentStatsResponse)
+async def get_agent_stats(
+    agent_id: uuid.UUID,
+    auth: User | uuid.UUID = Depends(get_chain_reader_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    agent = await agent_service.get_agent(db, agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found.")
+    if isinstance(auth, uuid.UUID):
+        if auth != agent_id:
+            raise HTTPException(status_code=403, detail="Access denied.")
+    else:
+        if not await agent_service.can_access_agent(db, agent, auth.id):
+            raise HTTPException(status_code=403, detail="Access denied.")
+    return await agent_service.get_agent_stats(db, agent_id)
+
+
+@router.get("/{agent_id}/stats/timeseries", response_model=AgentTimeseriesResponse)
+async def get_agent_timeseries(
+    agent_id: uuid.UUID,
+    range: str = Query(default="24h", pattern="^(1h|24h|7d|30d)$"),
+    auth: User | uuid.UUID = Depends(get_chain_reader_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    agent = await agent_service.get_agent(db, agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found.")
+    if isinstance(auth, uuid.UUID):
+        if auth != agent_id:
+            raise HTTPException(status_code=403, detail="Access denied.")
+    else:
+        if not await agent_service.can_access_agent(db, agent, auth.id):
+            raise HTTPException(status_code=403, detail="Access denied.")
+    return await agent_service.get_agent_timeseries(db, agent_id, range)
 
 
 @router.patch("/{agent_id}", response_model=AgentResponse)
