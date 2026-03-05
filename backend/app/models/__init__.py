@@ -1,6 +1,6 @@
 from app.models.agent import Agent
 from app.models.agent_group import AgentGroup
-from app.models.agent_run import AgentRun, ChainCallLog, RunEdge
+from app.models.agent_run import AgentRun, ChainCallLog, RunEdge, RunErrorDetail
 from app.models.api_key import ApiKey
 from app.models.chain import Chain
 from app.models.chain_version import ChainVersion
@@ -20,6 +20,7 @@ __all__ = [
     "Group",
     "RefreshToken",
     "RunEdge",
+    "RunErrorDetail",
     "User",
     "UserGroup",
 ]

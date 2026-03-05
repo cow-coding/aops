@@ -10,6 +10,7 @@ import AgentApiKeysTab from './pages/agent/AgentApiKeysTab';
 import AgentFlowTab from './pages/agent/AgentFlowTab';
 import AgentSettingsTab from './pages/agent/AgentSettingsTab';
 import AgentStatsTab from './pages/agent/AgentStatsTab';
+import AgentTracesTab from './pages/agent/AgentTracesTab';
 import ChainCreatePage from './pages/ChainCreatePage';
 import ChainDetailPage from './pages/ChainDetailPage';
 import GroupsPage from './pages/GroupsPage';
@@ -61,6 +62,7 @@ export default function App() {
           <Route path="api-keys" element={<AgentApiKeysTab />} />
           <Route path="flow" element={<AgentFlowTab />} />
           <Route path="stats" element={<AgentStatsTab />} />
+          <Route path="traces" element={<AgentTracesTab />} />
           <Route path="settings" element={<AgentSettingsTab />} />
         </Route>
 

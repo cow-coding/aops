@@ -29,6 +29,7 @@ import type { RunSummary, RunDetail } from '../types/run';
 import { agentApi } from '../services/agentApi';
 import { runsApi } from '../services/runsApi';
 import { monoFontFamily } from '../theme';
+import StackTraceModal from '../components/StackTraceModal';
 
 // ── JSON highlight (same as ChainDetailPage) ──────────────────────────────────
 
@@ -278,6 +279,7 @@ function RunRow({
   detailLoading,
   detailError,
   onToggle,
+  onOpenStackTrace,
   mode,
   isSlow,
 }: {
@@ -287,6 +289,7 @@ function RunRow({
   detailLoading: boolean;
   detailError: string | null;
   onToggle: () => void;
+  onOpenStackTrace: (() => void) | null;
   mode: 'dark' | 'light';
   isSlow: boolean;
 }) {
@@ -347,6 +350,28 @@ function RunRow({
               {formatDuration(run.duration_ms)}
             </Typography>
             {isSlow && <WarningAmberOutlinedIcon sx={{ fontSize: 12, color: '#F85149' }} />}
+            {run.status === 'error' && (
+              <Box sx={{
+                px: 0.75, py: 0.125, borderRadius: '4px',
+                background: 'rgba(248, 81, 73, 0.15)',
+                border: '1px solid rgba(248, 81, 73, 0.4)',
+                fontSize: '0.625rem', fontWeight: 600, color: '#F85149',
+                lineHeight: 1.4, letterSpacing: '0.04em',
+              }}>
+                error
+              </Box>
+            )}
+            {run.status === 'running' && (
+              <Box sx={{
+                px: 0.75, py: 0.125, borderRadius: '4px',
+                background: 'rgba(110, 118, 129, 0.15)',
+                border: `1px solid ${colors.border.default}`,
+                fontSize: '0.625rem', fontWeight: 600, color: colors.fg.muted,
+                lineHeight: 1.4, letterSpacing: '0.04em',
+              }}>
+                running
+              </Box>
+            )}
           </Box>
           {/* Calls col */}
           <Typography sx={{ fontSize: '0.75rem', color: colors.fg.subtle, width: 48, flexShrink: 0 }}>
@@ -383,6 +408,20 @@ function RunRow({
         )}
         {detailError && <Alert severity="error">{detailError}</Alert>}
         {detail && <RunDetailPanel detail={detail} mode={mode} />}
+        {run.status === 'error' && onOpenStackTrace && (
+          <Box sx={{ mt: detail ? 1.5 : 0 }}>
+            <Button
+              size="small"
+              onClick={(e) => { e.stopPropagation(); onOpenStackTrace(); }}
+              sx={{
+                fontSize: '0.6875rem', color: '#F85149', px: 1, py: 0.25, minHeight: 'unset',
+                '&:hover': { backgroundColor: 'rgba(248,81,73,0.08)' },
+              }}
+            >
+              View Stack Trace
+            </Button>
+          </Box>
+        )}
       </AccordionDetails>
     </Accordion>
   );
@@ -390,7 +429,12 @@ function RunRow({
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-export default function TracesPage() {
+interface TracesPageProps {
+  agentId?: string;
+  showStackTrace?: boolean;
+}
+
+export default function TracesPage({ agentId: fixedAgentId, showStackTrace = false }: TracesPageProps) {
   const theme = useTheme();
   const colors = theme.colors;
   const mode = theme.palette.mode;
@@ -398,9 +442,11 @@ export default function TracesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const edgeSource = searchParams.get('source');
   const edgeTarget = searchParams.get('target');
+  const statusFilter = searchParams.get('status'); // 'error' | null
 
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string>('');
+  const effectiveAgentId = fixedAgentId ?? selectedAgentId;
   const [timeRange, setTimeRange] = useState<TimeRange>('24h');
   const [runs, setRuns] = useState<RunSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -416,17 +462,19 @@ export default function TracesPage() {
   const [details, setDetails] = useState<Record<string, RunDetail>>({});
   const [detailLoading, setDetailLoading] = useState<Record<string, boolean>>({});
   const [detailError, setDetailError] = useState<Record<string, string>>({});
+  const [stackTraceRunId, setStackTraceRunId] = useState<string | null>(null);
 
-  // Load agents once
+  // Load agents list only for global view
   useEffect(() => {
+    if (fixedAgentId) return;
     agentApi.list().then(setAgents).catch(() => {});
-  }, []);
+  }, [fixedAgentId]);
 
   const loadRuns = useCallback(() => {
     setLoading(true);
     setError(null);
     runsApi.list({
-      agent_id: selectedAgentId || undefined,
+      agent_id: effectiveAgentId || undefined,
       started_after: timeRangeToAfter(timeRange),
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,
@@ -440,18 +488,18 @@ export default function TracesPage() {
       })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [selectedAgentId, timeRange, page, edgeSource, edgeTarget]);
+  }, [effectiveAgentId, timeRange, page, edgeSource, edgeTarget]);
 
   useEffect(() => { loadRuns(); }, [loadRuns]);
 
   // Reset page when filters change
-  useEffect(() => { setPage(1); }, [selectedAgentId, timeRange, edgeSource, edgeTarget]);
+  useEffect(() => { setPage(1); }, [effectiveAgentId, timeRange, edgeSource, edgeTarget, statusFilter]);
 
   // Live polling — 15s, silent, first page only
   useEffect(() => {
     const id = setInterval(() => {
       runsApi.list({
-        agent_id: selectedAgentId || undefined,
+        agent_id: effectiveAgentId || undefined,
         started_after: timeRangeToAfter(timeRange),
         limit: PAGE_SIZE,
         offset: 0,
@@ -468,7 +516,7 @@ export default function TracesPage() {
       }).catch(() => {});
     }, 15000);
     return () => clearInterval(id);
-  }, [selectedAgentId, timeRange, page, edgeSource, edgeTarget]);
+  }, [effectiveAgentId, timeRange, page, edgeSource, edgeTarget]);
 
   // Computed stats
   const validDurations = runs.filter((r) => r.duration_ms !== null).map((r) => r.duration_ms as number);
@@ -500,28 +548,32 @@ export default function TracesPage() {
 
   return (
     <Box>
-      {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
-        <TimelineOutlinedIcon sx={{ fontSize: 20, color: colors.fg.subtle }} />
-        <Typography variant="h2">Traces</Typography>
-      </Box>
+      {/* Header — hidden when used as agent tab */}
+      {!fixedAgentId && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+          <TimelineOutlinedIcon sx={{ fontSize: 20, color: colors.fg.subtle }} />
+          <Typography variant="h2">Traces</Typography>
+        </Box>
+      )}
 
       {/* Filter bar */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2.5 }}>
-        <Select
-          size="small"
-          value={selectedAgentId}
-          onChange={(e) => setSelectedAgentId(e.target.value)}
-          displayEmpty
-          sx={{ minWidth: 180, fontSize: '0.8125rem' }}
-        >
-          <MenuItem value="">All Agents</MenuItem>
-          {agents.map((a) => (
-            <MenuItem key={a.id} value={a.id} sx={{ fontSize: '0.8125rem' }}>
-              {a.name}
-            </MenuItem>
-          ))}
-        </Select>
+        {!fixedAgentId && (
+          <Select
+            size="small"
+            value={selectedAgentId}
+            onChange={(e) => setSelectedAgentId(e.target.value)}
+            displayEmpty
+            sx={{ minWidth: 180, fontSize: '0.8125rem' }}
+          >
+            <MenuItem value="">All Agents</MenuItem>
+            {agents.map((a) => (
+              <MenuItem key={a.id} value={a.id} sx={{ fontSize: '0.8125rem' }}>
+                {a.name}
+              </MenuItem>
+            ))}
+          </Select>
+        )}
 
         <ToggleButtonGroup
           size="small"
@@ -537,23 +589,48 @@ export default function TracesPage() {
         </ToggleButtonGroup>
       </Box>
 
-      {/* Edge filter chip */}
-      {edgeSource && edgeTarget && (
-        <Box sx={{ mb: 2 }}>
-          <Chip
-            label={`${edgeSource} → ${edgeTarget}`}
-            onDelete={() => setSearchParams({})}
-            size="small"
-            sx={{
-              fontSize: '0.75rem',
-              background: 'rgba(94, 106, 210, 0.15)',
-              border: '1px solid rgba(94, 106, 210, 0.4)',
-              color: '#8B92E8',
-              '& .MuiChip-deleteIcon': { color: '#8B92E8', '&:hover': { color: colors.fg.default } },
-            }}
-          />
+      {/* Active filter chips */}
+      {(edgeSource && edgeTarget) || statusFilter ? (
+        <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+          {edgeSource && edgeTarget && (
+            <Chip
+              label={`${edgeSource} → ${edgeTarget}`}
+              onDelete={() => {
+                const next = new URLSearchParams(searchParams);
+                next.delete('source');
+                next.delete('target');
+                setSearchParams(next);
+              }}
+              size="small"
+              sx={{
+                fontSize: '0.75rem',
+                background: 'rgba(94, 106, 210, 0.15)',
+                border: '1px solid rgba(94, 106, 210, 0.4)',
+                color: '#8B92E8',
+                '& .MuiChip-deleteIcon': { color: '#8B92E8', '&:hover': { color: colors.fg.default } },
+              }}
+            />
+          )}
+          {statusFilter === 'error' && (
+            <Chip
+              label="error only"
+              onDelete={() => {
+                const next = new URLSearchParams(searchParams);
+                next.delete('status');
+                setSearchParams(next);
+              }}
+              size="small"
+              sx={{
+                fontSize: '0.75rem',
+                background: 'rgba(248, 81, 73, 0.15)',
+                border: '1px solid rgba(248, 81, 73, 0.4)',
+                color: '#F85149',
+                '& .MuiChip-deleteIcon': { color: '#F85149', '&:hover': { color: colors.fg.default } },
+              }}
+            />
+          )}
         </Box>
-      )}
+      ) : null}
 
       {/* Summary banner */}
       {!loading && !error && runs.length > 0 && (
@@ -674,6 +751,7 @@ export default function TracesPage() {
           )}
           {runs
             .filter((run) => !showSlowOnly || (medianDuration !== null && run.duration_ms !== null && run.duration_ms > medianDuration * 2))
+            .filter((run) => !statusFilter || run.status === statusFilter)
             .map((run) => (
               <RunRow
                 key={run.id}
@@ -683,11 +761,22 @@ export default function TracesPage() {
                 detailLoading={detailLoading[run.id] ?? false}
                 detailError={detailError[run.id] ?? null}
                 onToggle={() => handleToggleRun(run.id)}
+                onOpenStackTrace={showStackTrace ? () => setStackTraceRunId(run.id) : null}
                 mode={mode}
                 isSlow={medianDuration !== null && run.duration_ms !== null && run.duration_ms > medianDuration * 2}
               />
             ))}
         </Box>
+      )}
+
+      {/* Stack Trace Modal */}
+      {stackTraceRunId && (
+        <StackTraceModal
+          open={!!stackTraceRunId}
+          onClose={() => setStackTraceRunId(null)}
+          runId={stackTraceRunId}
+          agentName={runs.find((r) => r.id === stackTraceRunId)?.agent_name}
+        />
       )}
 
       {/* Pagination */}

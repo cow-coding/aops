@@ -31,4 +31,5 @@ export const runsApi = {
   },
 
   getDetail: (runId: string) => api.get<RunDetail>(`/runs/${runId}`),
+  getRunError: (runId: string) => api.get<{ traceback: string }>(`/runs/${runId}/error`),
 };

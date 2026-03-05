@@ -124,17 +124,16 @@ export default function Sidebar() {
           onClick={() => navigate('/agents')}
         />
         <NavItem
-          icon={<GroupsOutlinedIcon sx={{ fontSize: 16 }} />}
-          label="Groups"
-          active={isGroupsActive}
-          onClick={() => navigate('/groups')}
-        />
-
-        <NavItem
           icon={<TimelineOutlinedIcon sx={{ fontSize: 16 }} />}
           label="Traces"
           active={isTracesActive}
           onClick={() => navigate('/traces')}
+        />
+        <NavItem
+          icon={<GroupsOutlinedIcon sx={{ fontSize: 16 }} />}
+          label="Groups"
+          active={isGroupsActive}
+          onClick={() => navigate('/groups')}
         />
 
         <Typography

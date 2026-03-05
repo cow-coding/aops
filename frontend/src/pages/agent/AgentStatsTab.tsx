@@ -1,11 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useNavigate } from 'react-router-dom';
 import {
   Alert,
   Box,
   CircularProgress,
-  ToggleButton,
-  ToggleButtonGroup,
   Tooltip,
   Typography,
 } from '@mui/material';
@@ -18,12 +16,12 @@ import {
 import type { AgentDetailContext } from '../../types/agentDetail';
 import type { AgentStats, AgentTimeseries } from '../../types/agentStats';
 import { agentApi } from '../../services/agentApi';
+import TimeRangeSelector, { granularityFromParams } from '../../components/TimeRangeSelector';
+import type { TimeseriesParams, Granularity } from '../../components/TimeRangeSelector';
 
-type TimeRange = '1h' | '24h' | '7d' | '30d';
-
-function formatXAxisTick(bucket: string, range: TimeRange): string {
+function formatXAxisTick(bucket: string, granularity: Granularity): string {
   const d = new Date(bucket);
-  if (range === '1h' || range === '24h') return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (granularity === '5m' || granularity === '1h') return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
@@ -112,6 +110,7 @@ function TrendBadge({ pct, invert }: { pct: number | null; invert?: boolean }) {
 
 export default function AgentStatsTab() {
   const { agent } = useOutletContext<AgentDetailContext>();
+  const navigate = useNavigate();
   const theme = useTheme();
   const colors = theme.colors;
 
@@ -122,20 +121,20 @@ export default function AgentStatsTab() {
   const [timeseries, setTimeseries] = useState<AgentTimeseries | null>(null);
   const [timeseriesLoading, setTimeseriesLoading] = useState(false);
   const [timeseriesError, setTimeseriesError] = useState<string | null>(null);
-  const [timeRange, setTimeRange] = useState<TimeRange>('1h');
+  const [timeseriesParams, setTimeseriesParams] = useState<TimeseriesParams>({ range: '1h' });
 
   useEffect(() => {
     agentApi.getStats(agent.id)
       .then(setStats)
       .catch((err: Error) => setStatsError(err.message))
       .finally(() => setStatsLoading(false));
-    loadTimeseries('1h');
   }, [agent.id]);
 
-  function loadTimeseries(range: TimeRange) {
+  function loadTimeseries(params: TimeseriesParams) {
+    setTimeseriesParams(params);
     setTimeseriesLoading(true);
     setTimeseriesError(null);
-    agentApi.getTimeseries(agent.id, range)
+    agentApi.getTimeseries(agent.id, params)
       .then(setTimeseries)
       .catch((err: Error) => setTimeseriesError(err.message))
       .finally(() => setTimeseriesLoading(false));
@@ -176,6 +175,7 @@ export default function AgentStatsTab() {
                 value: stats.error_count.toLocaleString(),
                 trendPct: null,
                 invert: true,
+                clickTo: stats.error_count > 0 ? `/agents/${agent.id}/traces?status=error` : undefined,
               },
               {
                 label: 'Avg Latency',
@@ -191,15 +191,19 @@ export default function AgentStatsTab() {
                 invert: true,
                 tooltip: '95th percentile latency — 95% of runs completed faster than this value. A high p95 indicates occasional slow responses even if the average looks healthy.',
               },
-            ] as { label: string; value: string; trendPct: number | null; invert: boolean; tooltip?: string }[]).map(({ label, value, trendPct, invert, tooltip }) => (
+            ] as { label: string; value: string; trendPct: number | null; invert: boolean; tooltip?: string; clickTo?: string }[]).map(({ label, value, trendPct, invert, tooltip, clickTo }) => (
               <Box
                 key={label}
+                onClick={clickTo ? () => navigate(clickTo) : undefined}
                 sx={{
                   border: `1px solid ${colors.border.muted}`,
                   borderRadius: '8px',
                   px: 2,
                   py: 1.75,
                   background: colors.canvas.subtle,
+                  cursor: clickTo ? 'pointer' : 'default',
+                  transition: 'border-color 0.15s',
+                  '&:hover': clickTo ? { borderColor: colors.border.default } : {},
                 }}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
@@ -222,21 +226,9 @@ export default function AgentStatsTab() {
             ))}
           </Box>
 
-          {/* ── Time Range Toggle ── */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-            <ToggleButtonGroup
-              size="small"
-              value={timeRange}
-              exclusive
-              onChange={(_, v) => { if (v) { setTimeRange(v as TimeRange); loadTimeseries(v as TimeRange); } }}
-            >
-              {(['1h', '24h', '7d', '30d'] as TimeRange[]).map((r) => (
-                <ToggleButton key={r} value={r} sx={{ fontSize: '0.75rem', px: 1.5, textTransform: 'none' }}>
-                  {r}
-                </ToggleButton>
-              ))}
-            </ToggleButtonGroup>
-            {timeseriesLoading && <CircularProgress size={14} sx={{ ml: 1 }} color="inherit" />}
+          {/* ── Time Range Selector ── */}
+          <Box sx={{ mb: 2 }}>
+            <TimeRangeSelector onChange={loadTimeseries} loading={timeseriesLoading} />
           </Box>
 
           {/* ── Charts ── */}
@@ -259,7 +251,7 @@ export default function AgentStatsTab() {
                     <CartesianGrid vertical={false} stroke={colors.border.muted} />
                     <XAxis
                       dataKey="ts"
-                      tickFormatter={(v) => formatXAxisTick(v as string, timeRange)}
+                      tickFormatter={(v) => formatXAxisTick(v as string, granularityFromParams(timeseriesParams))}
                       tick={{ fill: colors.fg.muted, fontSize: 10 }}
                       axisLine={false}
                       tickLine={false}
@@ -328,7 +320,7 @@ export default function AgentStatsTab() {
                         <CartesianGrid vertical={false} stroke={colors.border.muted} strokeDasharray="2 4" />
                         <XAxis
                           dataKey="ts"
-                          tickFormatter={(v) => formatXAxisTick(v as string, timeRange)}
+                          tickFormatter={(v) => formatXAxisTick(v as string, granularityFromParams(timeseriesParams))}
                           tick={{ fill: colors.fg.muted, fontSize: 10 }}
                           axisLine={false}
                           tickLine={false}

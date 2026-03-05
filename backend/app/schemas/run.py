@@ -10,12 +10,18 @@ class ChainCallLogCreate(BaseModel):
     latency_ms: int | None = None
     input: str | None = None
     output: str | None = None
+    status: str = "success"
+    error_message: str | None = None
 
 
 class AgentRunCreate(BaseModel):
     started_at: datetime
     ended_at: datetime | None = None
     chain_calls: list[ChainCallLogCreate] = Field(default=[], max_length=1000)
+    status: str = "success"
+    error_type: str | None = None
+    error_message: str | None = None
+    error_traceback: str | None = None
 
 
 class AgentRunResponse(BaseModel):
@@ -49,6 +55,7 @@ class RunSummary(BaseModel):
     ended_at: datetime | None
     duration_ms: int | None
     chain_names: list[str]
+    status: str
 
 
 class RunListResponse(BaseModel):
@@ -64,6 +71,10 @@ class RunDetail(BaseModel):
     ended_at: datetime | None
     duration_ms: int | None
     chain_calls: list[ChainCallLogDetail]
+
+
+class RunErrorResponse(BaseModel):
+    traceback: str
 
 
 class ChainFlowEntry(BaseModel):

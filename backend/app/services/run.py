@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.agent import Agent
 from app.models.agent_group import AgentGroup
-from app.models.agent_run import AgentRun, ChainCallLog, RunEdge
+from app.models.agent_run import AgentRun, ChainCallLog, RunEdge, RunErrorDetail
 from app.models.user_group import UserGroup
 from app.schemas.run import (
     AgentRunCreate,
@@ -29,6 +29,9 @@ async def create_run(
         agent_id=agent_id,
         started_at=data.started_at,
         ended_at=data.ended_at,
+        status=data.status,
+        error_type=data.error_type,
+        error_message=data.error_message,
     )
     db.add(run)
     await db.flush()
@@ -44,12 +47,17 @@ async def create_run(
             latency_ms=call.latency_ms,
             input=call.input,
             output=call.output,
+            status=call.status,
+            error_message=call.error_message,
         )
         db.add(log)
         chain_names.append(call.chain_name)
 
     for src, tgt in zip(chain_names, chain_names[1:]):
         db.add(RunEdge(run_id=run.id, agent_id=agent_id, source_chain=src, target_chain=tgt))
+
+    if data.error_traceback:
+        db.add(RunErrorDetail(run_id=run.id, traceback=data.error_traceback))
 
     await db.commit()
     await db.refresh(run)
@@ -78,6 +86,7 @@ async def list_runs(
     started_before: datetime | None = None,
     source_chain: str | None = None,
     target_chain: str | None = None,
+    status: str | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> tuple[list[RunSummary], int]:
@@ -104,6 +113,8 @@ async def list_runs(
             if agent_id is not None:
                 edge_subq = edge_subq.where(RunEdge.agent_id == agent_id)
             q = q.where(AgentRun.id.in_(edge_subq.scalar_subquery()))
+        if status is not None:
+            q = q.where(AgentRun.status == status)
         return q
 
     base_filter = _apply_filters(
@@ -150,6 +161,7 @@ async def list_runs(
             ended_at=row.AgentRun.ended_at,
             duration_ms=_duration_ms(row.AgentRun.started_at, row.AgentRun.ended_at),
             chain_names=chains_by_run[row.AgentRun.id],
+            status=row.AgentRun.status,
         )
         for row in rows
     ]

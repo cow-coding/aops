@@ -6,6 +6,7 @@ export interface RunSummary {
   ended_at: string | null;
   duration_ms: number | null;
   chain_names: string[];
+  status: 'running' | 'success' | 'error';
 }
 
 export interface RunChainCall {

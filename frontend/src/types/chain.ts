@@ -44,6 +44,8 @@ export interface ChainLog {
   called_at: string;
   input: string | null;
   output: string | null;
+  status: 'success' | 'error';
+  error_message: string | null;
 }
 
 export interface ChainVersion {
