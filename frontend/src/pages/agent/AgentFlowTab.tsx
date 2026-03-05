@@ -193,24 +193,40 @@ function buildNodes(
   return [...executedNodes, ...unexecutedNodes];
 }
 
-function buildEdges(chains: Chain[], flowData: ChainFlowData | null, edgeStyle: React.CSSProperties, labelStyle: React.CSSProperties): Edge[] {
+function buildEdges(
+  chains: Chain[],
+  flowData: ChainFlowData | null,
+  edgeStyle: React.CSSProperties,
+  labelStyle: React.CSSProperties,
+  selectedEdgeId: string | null,
+  selectedEdgeStyle: React.CSSProperties,
+  hoveredEdgeId: string | null,
+  hoveredEdgeStyle: React.CSSProperties,
+): Edge[] {
   if (!flowData?.edges.length) return [];
   const nameToId = new Map(chains.map((c) => [c.name, c.id]));
-  return flowData.edges.map((e, i) => ({
-    id: `${e.source}-${e.target}-${i}`,
-    source: nameToId.get(e.source) ?? e.source,
-    target: nameToId.get(e.target) ?? e.target,
-    type: 'smoothstep',
-    label: `${e.count}×`,
-    labelStyle,
-    style: edgeStyle,
-    markerEnd: {
-      type: MarkerType.ArrowClosed,
-      color: edgeStyle.stroke as string,
-      width: 16,
-      height: 16,
-    },
-  }));
+  return flowData.edges.map((e, i) => {
+    const id = `${e.source}-${e.target}-${i}`;
+    const isSelected = id === selectedEdgeId;
+    const isHovered = !isSelected && id === hoveredEdgeId;
+    const style = isSelected ? selectedEdgeStyle : isHovered ? hoveredEdgeStyle : edgeStyle;
+    return {
+      id,
+      source: nameToId.get(e.source) ?? e.source,
+      target: nameToId.get(e.target) ?? e.target,
+      type: 'smoothstep',
+      label: `${e.count}×`,
+      labelStyle,
+      style: { ...style, cursor: 'pointer' },
+      data: { sourceName: e.source, targetName: e.target },
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        color: style.stroke as string,
+        width: 16,
+        height: 16,
+      },
+    };
+  });
 }
 
 // ── Empty / overlay states ────────────────────────────────────────────────────
@@ -324,6 +340,7 @@ function LoadingOverlay() {
 
 export default function AgentFlowTab() {
   const { agent, chains, setChains } = useOutletContext<AgentDetailContext>();
+  const navigate = useNavigate();
   const theme = useTheme();
   const colors = theme.colors;
   const isDark = theme.palette.mode === 'dark';
@@ -331,6 +348,8 @@ export default function AgentFlowTab() {
   const [flowData, setFlowData] = useState<ChainFlowData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -355,11 +374,30 @@ export default function AgentFlowTab() {
 
   const flowChains = useMemo(() => chains.filter((c) => c.show_in_flow), [chains]);
 
-  const edgeStyle: React.CSSProperties = { stroke: colors.border.default };
+  const edgeStyle: React.CSSProperties = { stroke: colors.border.default, strokeWidth: 1.5 };
+  const hoveredEdgeStyle: React.CSSProperties = { stroke: colors.border.hover, strokeWidth: 2.5 };
+  const selectedEdgeStyle: React.CSSProperties = { stroke: '#5E6AD2', strokeWidth: 2.5 };
   const labelStyle: React.CSSProperties = { fill: colors.fg.subtle, fontSize: '0.6875rem' };
 
+  const handleEdgeMouseEnter = useCallback((_: React.MouseEvent, edge: Edge) => {
+    setHoveredEdgeId(edge.id);
+  }, []);
+
+  const handleEdgeMouseLeave = useCallback(() => {
+    setHoveredEdgeId(null);
+  }, []);
+
+  const handleEdgeClick = useCallback((_: React.MouseEvent, edge: Edge) => {
+    const sourceName = (edge.data as { sourceName: string; targetName: string } | undefined)?.sourceName;
+    const targetName = (edge.data as { sourceName: string; targetName: string } | undefined)?.targetName;
+    setSelectedEdgeId(edge.id);
+    if (sourceName && targetName) {
+      navigate(`/traces?source=${encodeURIComponent(sourceName)}&target=${encodeURIComponent(targetName)}`);
+    }
+  }, [navigate]);
+
   const nodes = useMemo(() => buildNodes(flowChains, flowData, handleHideChain, agent.id), [flowChains, flowData, handleHideChain, agent.id]);
-  const edges = useMemo(() => buildEdges(flowChains, flowData, edgeStyle, labelStyle), [flowChains, flowData]);
+  const edges = useMemo(() => buildEdges(flowChains, flowData, edgeStyle, labelStyle, selectedEdgeId, selectedEdgeStyle, hoveredEdgeId, hoveredEdgeStyle), [flowChains, flowData, selectedEdgeId, hoveredEdgeId]);
 
   const hasNoChains = chains.length === 0;
   const hasAllHidden = !hasNoChains && flowChains.length === 0;
@@ -399,7 +437,10 @@ export default function AgentFlowTab() {
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
-               fitView
+        onEdgeClick={handleEdgeClick}
+        onEdgeMouseEnter={handleEdgeMouseEnter}
+        onEdgeMouseLeave={handleEdgeMouseLeave}
+        fitView
         fitViewOptions={{ padding: 0.2 }}
         proOptions={{ hideAttribution: true }}
       >
