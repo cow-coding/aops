@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Box, CircularProgress, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
-import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs, { Dayjs } from 'dayjs';
 
 export type PresetRange = '1h' | '24h' | '7d' | '30d';
@@ -14,153 +13,136 @@ export interface TimeseriesParams {
   granularity?: Granularity;
 }
 
+const TOGGLE_GRANULARITY: Record<PresetRange, Granularity> = {
+  '1h': '1h',
+  '24h': '6h',
+  '7d': '6h',
+  '30d': '1d',
+};
+
+// Minimum date-range days required to enable each toggle
+const TOGGLE_MIN_DAYS: Record<PresetRange, number> = {
+  '1h': 0,
+  '24h': 0,
+  '7d': 7,
+  '30d': 30,
+};
+
+// Ordered from largest to smallest for auto-fallback
+const TOGGLE_ORDER: PresetRange[] = ['30d', '7d', '24h', '1h'];
+
+export function granularityFromParams(params: TimeseriesParams): Granularity {
+  if (params.granularity) return params.granularity;
+  if (params.range) return TOGGLE_GRANULARITY[params.range];
+  return '1h';
+}
+
 interface TimeRangeSelectorProps {
   onChange: (params: TimeseriesParams) => void;
   loading?: boolean;
 }
 
-function suggestGranularity(startMs: number, endMs: number): Granularity {
-  const hours = (endMs - startMs) / 3_600_000;
-  if (hours <= 2) return '5m';
-  if (hours <= 48) return '1h';
-  if (hours <= 336) return '6h';
-  return '1d';
-}
-
-const PRESET_GRANULARITY: Record<PresetRange, Granularity> = {
-  '1h': '5m',
-  '24h': '1h',
-  '7d': '6h',
-  '30d': '1d',
-};
-
-export function granularityFromParams(params: TimeseriesParams): Granularity {
-  if (params.granularity) return params.granularity;
-  if (params.range) return PRESET_GRANULARITY[params.range];
-  return '1h';
-}
-
 export default function TimeRangeSelector({ onChange, loading }: TimeRangeSelectorProps) {
-  const theme = useTheme();
+  const [startDate, setStartDate] = useState<Dayjs>(dayjs().subtract(1, 'day'));
+  const [endDate, setEndDate] = useState<Dayjs>(dayjs());
+  const [toggle, setToggle] = useState<PresetRange>('1h');
 
-  const [preset, setPreset] = useState<PresetRange>('1h');
-  const [isCustom, setIsCustom] = useState(false);
-  const [startDate, setStartDate] = useState<Dayjs | null>(null);
-  const [endDate, setEndDate] = useState<Dayjs | null>(null);
-  const [granularity, setGranularity] = useState<Granularity>('5m');
+  const rangeDays = endDate.diff(startDate, 'day');
 
-  // Fire initial params on mount
+  const isDisabled = (r: PresetRange) => rangeDays < TOGGLE_MIN_DAYS[r];
+
+  const fire = useCallback(
+    (start: Dayjs, end: Dayjs, g: PresetRange) => {
+      onChange({
+        started_after: start.startOf('day').toISOString(),
+        started_before: end.endOf('day').toISOString(),
+        granularity: TOGGLE_GRANULARITY[g],
+      });
+    },
+    [onChange],
+  );
+
+  // Fire initial value
   useEffect(() => {
-    onChange({ range: '1h' });
+    fire(startDate, endDate, toggle);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handlePreset = useCallback((v: PresetRange) => {
-    setPreset(v);
-    setIsCustom(false);
-    setStartDate(null);
-    setEndDate(null);
-    setGranularity(PRESET_GRANULARITY[v]);
-    onChange({ range: v });
-  }, [onChange]);
-
-  const handleDateChange = useCallback((start: Dayjs | null, end: Dayjs | null, gran: Granularity) => {
-    if (start && end && end.isAfter(start)) {
-      setIsCustom(true);
-      onChange({
-        started_after: start.toISOString(),
-        started_before: end.toISOString(),
-        granularity: gran,
-      });
+  // Auto-fallback when date range shrinks and current toggle becomes disabled
+  useEffect(() => {
+    if (isDisabled(toggle)) {
+      const fallback = TOGGLE_ORDER.find((r) => !isDisabled(r)) ?? '1h';
+      setToggle(fallback);
+      fire(startDate, endDate, fallback);
     }
-  }, [onChange]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rangeDays]);
 
   const handleStartChange = (val: Dayjs | null) => {
+    if (!val) return;
     setStartDate(val);
-    const newGran = (val && endDate) ? suggestGranularity(val.valueOf(), endDate.valueOf()) : granularity;
-    if (val && endDate) setGranularity(newGran);
-    handleDateChange(val, endDate, newGran);
+    fire(val, endDate, toggle);
   };
 
   const handleEndChange = (val: Dayjs | null) => {
+    if (!val) return;
     setEndDate(val);
-    const newGran = (startDate && val) ? suggestGranularity(startDate.valueOf(), val.valueOf()) : granularity;
-    if (startDate && val) setGranularity(newGran);
-    handleDateChange(startDate, val, newGran);
+    fire(startDate, val, toggle);
   };
 
-  const handleGranularity = (v: Granularity) => {
-    setGranularity(v);
-    if (isCustom && startDate && endDate) {
-      onChange({
-        started_after: startDate.toISOString(),
-        started_before: endDate.toISOString(),
-        granularity: v,
-      });
-    }
-  };
+  const handleToggle = useCallback(
+    (_: React.MouseEvent, v: PresetRange | null) => {
+      if (!v) return;
+      setToggle(v);
+      fire(startDate, endDate, v);
+    },
+    [fire, startDate, endDate],
+  );
 
   const pickerSlotProps = {
     textField: {
       size: 'small' as const,
-      sx: { width: 188, '& .MuiInputBase-input': { fontSize: '0.75rem', py: 0.625 } },
+      sx: { width: 140, '& .MuiInputBase-input': { fontSize: '0.75rem', py: 0.75 } },
     },
   };
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-      {/* Preset toggle */}
-      <ToggleButtonGroup
-        size="small"
-        value={isCustom ? null : preset}
-        exclusive
-        onChange={(_, v) => { if (v) handlePreset(v as PresetRange); }}
-      >
-        {(['1h', '24h', '7d', '30d'] as PresetRange[]).map((r) => (
-          <ToggleButton key={r} value={r} sx={{ fontSize: '0.75rem', px: 1.5, textTransform: 'none' }}>
-            {r}
-          </ToggleButton>
-        ))}
-      </ToggleButtonGroup>
-
-      {/* Divider */}
-      <Typography sx={{ fontSize: '0.75rem', color: 'text.disabled', userSelect: 'none' }}>|</Typography>
-
-      {/* Date range */}
+      {/* Date range picker */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-        <DateTimePicker
+        <DatePicker
           label="From"
           value={startDate}
           onChange={handleStartChange}
-          maxDateTime={endDate ?? dayjs()}
+          maxDate={endDate}
+          format="YYYY/MM/DD"
           slotProps={pickerSlotProps}
         />
         <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>→</Typography>
-        <DateTimePicker
+        <DatePicker
           label="To"
           value={endDate}
           onChange={handleEndChange}
-          minDateTime={startDate ?? undefined}
-          maxDateTime={dayjs()}
+          minDate={startDate}
+          maxDate={dayjs()}
+          format="YYYY/MM/DD"
           slotProps={pickerSlotProps}
         />
       </Box>
 
-      {/* Granularity — only when custom */}
-      {isCustom && (
-        <ToggleButtonGroup
-          size="small"
-          value={granularity}
-          exclusive
-          onChange={(_, v) => { if (v) handleGranularity(v as Granularity); }}
-        >
-          {(['5m', '1h', '6h', '1d'] as Granularity[]).map((g) => (
-            <ToggleButton key={g} value={g} sx={{ fontSize: '0.75rem', px: 1, textTransform: 'none' }}>
-              {g}
-            </ToggleButton>
-          ))}
-        </ToggleButtonGroup>
-      )}
+      {/* Granularity toggle */}
+      <ToggleButtonGroup size="small" value={toggle} exclusive onChange={handleToggle}>
+        {(['1h', '24h', '7d', '30d'] as PresetRange[]).map((r) => (
+          <ToggleButton
+            key={r}
+            value={r}
+            disabled={isDisabled(r)}
+            sx={{ fontSize: '0.75rem', px: 1.5, textTransform: 'none' }}
+          >
+            {r}
+          </ToggleButton>
+        ))}
+      </ToggleButtonGroup>
 
       {loading && <CircularProgress size={14} color="inherit" />}
     </Box>

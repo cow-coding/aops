@@ -21,6 +21,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import CallMadeIcon from '@mui/icons-material/CallMade';
 import CallReceivedIcon from '@mui/icons-material/CallReceived';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import NorthEastIcon from '@mui/icons-material/NorthEast';
 import TimelineOutlinedIcon from '@mui/icons-material/TimelineOutlined';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
@@ -280,6 +281,7 @@ function RunRow({
   detailError,
   onToggle,
   onOpenStackTrace,
+  showViewError,
   mode,
   isSlow,
 }: {
@@ -290,6 +292,7 @@ function RunRow({
   detailError: string | null;
   onToggle: () => void;
   onOpenStackTrace: (() => void) | null;
+  showViewError: boolean;
   mode: 'dark' | 'light';
   isSlow: boolean;
 }) {
@@ -304,6 +307,7 @@ function RunRow({
       elevation={0}
       expanded={expanded}
       onChange={onToggle}
+      data-run-id={run.id}
       sx={{
         border: `1px solid ${isSlow ? 'rgba(248, 81, 73, 0.45)' : colors.border.muted}`,
         borderRadius: '8px !important',
@@ -385,7 +389,23 @@ function RunRow({
       </AccordionSummary>
       <AccordionDetails sx={{ px: 2, pt: 0, pb: 2 }}>
         <Divider sx={{ mb: 1 }} />
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1.5 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5, mb: 1.5 }}>
+          {showViewError && run.status === 'error' && (
+            <Button
+              size="small"
+              endIcon={<ErrorOutlineIcon sx={{ fontSize: '0.7rem !important' }} />}
+              onClick={(e) => { e.stopPropagation(); navigate(`/agents/${run.agent_id}/traces?open=${run.id}`); }}
+              sx={{
+                fontSize: '0.6875rem',
+                color: '#F85149',
+                px: 1, py: 0.25,
+                minHeight: 'unset',
+                '&:hover': { backgroundColor: 'rgba(248,81,73,0.08)' },
+              }}
+            >
+              View Error
+            </Button>
+          )}
           <Button
             size="small"
             endIcon={<NorthEastIcon sx={{ fontSize: '0.7rem !important' }} />}
@@ -443,6 +463,7 @@ export default function TracesPage({ agentId: fixedAgentId, showStackTrace = fal
   const edgeSource = searchParams.get('source');
   const edgeTarget = searchParams.get('target');
   const statusFilter = searchParams.get('status'); // 'error' | null
+  const openRunId = showStackTrace ? searchParams.get('open') : null;
 
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string>('');
@@ -463,6 +484,30 @@ export default function TracesPage({ agentId: fixedAgentId, showStackTrace = fal
   const [detailLoading, setDetailLoading] = useState<Record<string, boolean>>({});
   const [detailError, setDetailError] = useState<Record<string, string>>({});
   const [stackTraceRunId, setStackTraceRunId] = useState<string | null>(null);
+  const openHandledRef = useRef(false);
+
+  // Auto-expand accordion when ?open={runId} is present, after runs load
+  useEffect(() => {
+    if (!openRunId || loading || openHandledRef.current) return;
+    const found = runs.find((r) => r.id === openRunId);
+    if (!found) return;
+    openHandledRef.current = true;
+    setExpandedRunId(openRunId);
+    if (!details[openRunId] && !detailLoading[openRunId]) {
+      setDetailLoading((prev) => ({ ...prev, [openRunId]: true }));
+      runsApi.getDetail(openRunId)
+        .then((d) => setDetails((prev) => ({ ...prev, [openRunId]: d })))
+        .catch((err: Error) => setDetailError((prev) => ({ ...prev, [openRunId]: err.message })))
+        .finally(() => setDetailLoading((prev) => ({ ...prev, [openRunId]: false })));
+    }
+    const next = new URLSearchParams(searchParams);
+    next.delete('open');
+    setSearchParams(next, { replace: true });
+    setTimeout(() => {
+      document.querySelector(`[data-run-id="${openRunId}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 150);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, openRunId, runs]);
 
   // Load agents list only for global view
   useEffect(() => {
@@ -762,6 +807,7 @@ export default function TracesPage({ agentId: fixedAgentId, showStackTrace = fal
                 detailError={detailError[run.id] ?? null}
                 onToggle={() => handleToggleRun(run.id)}
                 onOpenStackTrace={showStackTrace ? () => setStackTraceRunId(run.id) : null}
+                showViewError={!showStackTrace}
                 mode={mode}
                 isSlow={medianDuration !== null && run.duration_ms !== null && run.duration_ms > medianDuration * 2}
               />
