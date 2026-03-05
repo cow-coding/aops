@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import get_chain_reader_auth, get_current_user
 from app.core.database import get_db
 from app.models.user import User
-from app.schemas.chain import ChainCallLogResponse, ChainCreate, ChainReorderRequest, ChainResponse, ChainStatsResponse, ChainUpdate
+from app.schemas.chain import ChainCallLogResponse, ChainCreate, ChainLogListResponse, ChainReorderRequest, ChainResponse, ChainStatsResponse, ChainTimeseriesResponse, ChainUpdate
 from app.services import agent as agent_service
 from app.services import chain as chain_service
 
@@ -100,11 +100,26 @@ async def get_chain_stats(
     return await chain_service.get_chain_stats(db, chain_id)
 
 
-@router.get("/{chain_id}/logs", response_model=list[ChainCallLogResponse])
+@router.get("/{chain_id}/stats/timeseries", response_model=ChainTimeseriesResponse)
+async def get_chain_timeseries(
+    agent_id: uuid.UUID,
+    chain_id: uuid.UUID,
+    range: str = Query(default="24h", pattern="^(1h|24h|7d|30d)$"),
+    auth: User | uuid.UUID = Depends(get_chain_reader_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_readable_agent(agent_id, auth, db)
+    chain = await chain_service.get_chain(db, chain_id)
+    if not chain or chain.agent_id != agent_id:
+        raise HTTPException(status_code=404, detail="Chain not found")
+    return await chain_service.get_chain_timeseries(db, chain_id, range)
+
+
+@router.get("/{chain_id}/logs", response_model=ChainLogListResponse)
 async def get_chain_logs(
     agent_id: uuid.UUID,
     chain_id: uuid.UUID,
-    limit: int = Query(default=50, ge=1, le=500),
+    limit: int = Query(default=30, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     auth: User | uuid.UUID = Depends(get_chain_reader_auth),
     db: AsyncSession = Depends(get_db),
@@ -113,7 +128,8 @@ async def get_chain_logs(
     chain = await chain_service.get_chain(db, chain_id)
     if not chain or chain.agent_id != agent_id:
         raise HTTPException(status_code=404, detail="Chain not found")
-    return await chain_service.get_chain_logs(db, chain_id, limit, offset)
+    items, total = await chain_service.get_chain_logs(db, chain_id, limit, offset)
+    return ChainLogListResponse(items=items, total=total)
 
 
 @router.patch("/reorder", status_code=204)
