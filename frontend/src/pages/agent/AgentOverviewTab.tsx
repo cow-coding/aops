@@ -17,6 +17,16 @@ import type { AgentDetailContext } from '../../types/agentDetail';
 import { agentApi } from '../../services/agentApi';
 import { monoFontFamily } from '../../theme';
 
+function formatDateTime(dateStr: string): string {
+  const d = new Date(dateStr);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const h = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `${y}/${m}/${day} ${h}:${min}`;
+}
+
 export default function AgentOverviewTab() {
   const { agent, setAgent } = useOutletContext<AgentDetailContext>();
   const theme = useTheme();
@@ -235,7 +245,7 @@ export default function AgentOverviewTab() {
             Created
           </Typography>
           <Typography variant="body2" sx={{ color: colors.fg.default }}>
-            {new Date(agent.created_at).toLocaleString()}
+            {formatDateTime(agent.created_at)}
           </Typography>
         </Box>
 
@@ -248,7 +258,7 @@ export default function AgentOverviewTab() {
             Updated
           </Typography>
           <Typography variant="body2" sx={{ color: colors.fg.default }}>
-            {new Date(agent.updated_at).toLocaleString()}
+            {formatDateTime(agent.updated_at)}
           </Typography>
         </Box>
       </Box>

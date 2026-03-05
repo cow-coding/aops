@@ -515,7 +515,12 @@ function formatXAxisTick(ts: string, granularity: import('../components/TimeRang
 }
 
 function formatBucketLabel(d: Date): string {
-  return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const y = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const h = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `${y}/${mo}/${day} ${h}:${min}`;
 }
 
 function LatencyTooltip({ active, payload, label }: { active?: boolean; payload?: { dataKey: string; value: number | null }[]; label?: string }) {
@@ -1291,7 +1296,7 @@ export default function ChainDetailPage() {
                           contentStyle={{ background: '#161B22', border: '1px solid #30363D', borderRadius: 6, fontSize: 12 }}
                           labelStyle={{ color: '#8B949E' }}
                           itemStyle={{ color: '#5E6AD2' }}
-                          labelFormatter={(v) => new Date(v as string).toLocaleString()}
+                          labelFormatter={(v) => formatBucketLabel(new Date(v as string))}
                           formatter={(v) => [v, 'Calls']}
                         />
                         <Bar dataKey="call_count" fill="#5E6AD2" radius={[3, 3, 0, 0]} maxBarSize={32} />
