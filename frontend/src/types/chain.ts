@@ -55,3 +55,19 @@ export interface ChainVersion {
   version_number: number;
   created_at: string;
 }
+
+export interface TimeseriesBucket {
+  ts: string;
+  call_count: number;
+  avg_latency_ms: number | null;
+  p95_latency_ms: number | null;
+}
+
+export interface ChainTimeseries {
+  buckets: TimeseriesBucket[];
+  trend: {
+    calls_pct: number | null;
+    avg_latency_pct: number | null;
+    p95_latency_pct: number | null;
+  };
+}

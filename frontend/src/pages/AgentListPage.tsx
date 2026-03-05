@@ -150,7 +150,7 @@ export default function AgentListPage() {
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25 }}>
                     <Typography
                       sx={{
-                        fontSize: '0.9375rem',
+                        fontSize: '0.875rem',
                         fontWeight: 600,
                         color: colors.accent.fg,
                         overflow: 'hidden',

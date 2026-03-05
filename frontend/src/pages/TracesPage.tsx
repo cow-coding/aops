@@ -6,6 +6,7 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   CircularProgress,
   Divider,
   MenuItem,
@@ -16,7 +17,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import CallMadeIcon from '@mui/icons-material/CallMade';
 import CallReceivedIcon from '@mui/icons-material/CallReceived';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -104,7 +105,7 @@ function timeRangeToAfter(range: TimeRange): string {
   return new Date(now - offsets[range]).toISOString();
 }
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 30;
 
 // ── Chain flow chips ──────────────────────────────────────────────────────────
 
@@ -301,11 +302,11 @@ function RunRow({
       expanded={expanded}
       onChange={onToggle}
       sx={{
-        border: `1px solid ${isSlow ? 'rgba(210, 153, 34, 0.45)' : colors.border.muted}`,
+        border: `1px solid ${isSlow ? 'rgba(248, 81, 73, 0.45)' : colors.border.muted}`,
         borderRadius: '8px !important',
         background: colors.canvas.subtle,
         '&:before': { display: 'none' },
-        '&.Mui-expanded': { borderColor: isSlow ? 'rgba(210, 153, 34, 0.7)' : colors.border.default },
+        '&.Mui-expanded': { borderColor: isSlow ? 'rgba(248, 81, 73, 0.7)' : colors.border.default },
       }}
     >
       <AccordionSummary
@@ -342,10 +343,10 @@ function RunRow({
           </Typography>
           {/* Duration col */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, width: 72, flexShrink: 0 }}>
-            <Typography sx={{ fontSize: '0.75rem', color: isSlow ? '#ff7b72' : colors.fg.subtle }}>
+            <Typography sx={{ fontSize: '0.75rem', color: isSlow ? '#F85149' : colors.fg.subtle }}>
               {formatDuration(run.duration_ms)}
             </Typography>
-            {isSlow && <WarningAmberOutlinedIcon sx={{ fontSize: 12, color: '#ff7b72' }} />}
+            {isSlow && <WarningAmberOutlinedIcon sx={{ fontSize: 12, color: '#F85149' }} />}
           </Box>
           {/* Calls col */}
           <Typography sx={{ fontSize: '0.75rem', color: colors.fg.subtle, width: 48, flexShrink: 0 }}>
@@ -394,6 +395,10 @@ export default function TracesPage() {
   const colors = theme.colors;
   const mode = theme.palette.mode;
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const edgeSource = searchParams.get('source');
+  const edgeTarget = searchParams.get('target');
+
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string>('');
   const [timeRange, setTimeRange] = useState<TimeRange>('24h');
@@ -406,6 +411,7 @@ export default function TracesPage() {
   const [pendingRuns, setPendingRuns] = useState<RunSummary[]>([]);
   const runsRef = useRef<RunSummary[]>([]);
 
+  const [showSlowOnly, setShowSlowOnly] = useState(false);
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
   const [details, setDetails] = useState<Record<string, RunDetail>>({});
   const [detailLoading, setDetailLoading] = useState<Record<string, boolean>>({});
@@ -424,20 +430,22 @@ export default function TracesPage() {
       started_after: timeRangeToAfter(timeRange),
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,
+      source_chain: edgeSource ?? undefined,
+      target_chain: edgeTarget ?? undefined,
     })
       .then((data) => {
-        setRuns(data);
-        runsRef.current = data;
-        setTotalPages(data.length === PAGE_SIZE ? page + 1 : page);
+        setRuns(data.items);
+        runsRef.current = data.items;
+        setTotalPages(Math.ceil(data.total / PAGE_SIZE) || 1);
       })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [selectedAgentId, timeRange, page]);
+  }, [selectedAgentId, timeRange, page, edgeSource, edgeTarget]);
 
   useEffect(() => { loadRuns(); }, [loadRuns]);
 
   // Reset page when filters change
-  useEffect(() => { setPage(1); }, [selectedAgentId, timeRange]);
+  useEffect(() => { setPage(1); }, [selectedAgentId, timeRange, edgeSource, edgeTarget]);
 
   // Live polling — 15s, silent, first page only
   useEffect(() => {
@@ -447,16 +455,20 @@ export default function TracesPage() {
         started_after: timeRangeToAfter(timeRange),
         limit: PAGE_SIZE,
         offset: 0,
+        source_chain: edgeSource ?? undefined,
+        target_chain: edgeTarget ?? undefined,
       }).then((fresh) => {
-        if (fresh.length > 0 && runsRef.current.length > 0 && fresh[0].id !== runsRef.current[0].id) {
+        if (page !== 1) return;
+        const freshItems = fresh.items;
+        if (freshItems.length > 0 && runsRef.current.length > 0 && freshItems[0].id !== runsRef.current[0].id) {
           const knownIds = new Set(runsRef.current.map((r) => r.id));
-          const newRuns = fresh.filter((r) => !knownIds.has(r.id));
+          const newRuns = freshItems.filter((r) => !knownIds.has(r.id));
           if (newRuns.length > 0) setPendingRuns(newRuns);
         }
       }).catch(() => {});
     }, 15000);
     return () => clearInterval(id);
-  }, [selectedAgentId, timeRange]);
+  }, [selectedAgentId, timeRange, page, edgeSource, edgeTarget]);
 
   // Computed stats
   const validDurations = runs.filter((r) => r.duration_ms !== null).map((r) => r.duration_ms as number);
@@ -525,6 +537,24 @@ export default function TracesPage() {
         </ToggleButtonGroup>
       </Box>
 
+      {/* Edge filter chip */}
+      {edgeSource && edgeTarget && (
+        <Box sx={{ mb: 2 }}>
+          <Chip
+            label={`${edgeSource} → ${edgeTarget}`}
+            onDelete={() => setSearchParams({})}
+            size="small"
+            sx={{
+              fontSize: '0.75rem',
+              background: 'rgba(94, 106, 210, 0.15)',
+              border: '1px solid rgba(94, 106, 210, 0.4)',
+              color: '#8B92E8',
+              '& .MuiChip-deleteIcon': { color: '#8B92E8', '&:hover': { color: colors.fg.default } },
+            }}
+          />
+        </Box>
+      )}
+
       {/* Summary banner */}
       {!loading && !error && runs.length > 0 && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, px: 0.5 }}>
@@ -542,13 +572,36 @@ export default function TracesPage() {
           {slowCount > 0 && (
             <>
               <Typography sx={{ fontSize: '0.75rem', color: colors.fg.subtle }}>·</Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-                <WarningAmberOutlinedIcon sx={{ fontSize: 12, color: '#ff7b72' }} />
-                <Typography sx={{ fontSize: '0.75rem', color: '#ff7b72' }}>
+              <Box
+                onClick={() => setShowSlowOnly((v) => !v)}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.25,
+                  cursor: 'pointer',
+                  px: 0.75,
+                  py: 0.25,
+                  borderRadius: '4px',
+                  background: showSlowOnly ? 'rgba(248, 81, 73, 0.2)' : 'transparent',
+                  border: `1px solid ${showSlowOnly ? 'rgba(248, 81, 73, 0.5)' : 'transparent'}`,
+                  transition: 'all 0.15s',
+                  '&:hover': { background: 'rgba(248, 81, 73, 0.15)' },
+                }}
+              >
+                <WarningAmberOutlinedIcon sx={{ fontSize: 12, color: '#F85149' }} />
+                <Typography sx={{ fontSize: '0.75rem', color: '#F85149' }}>
                   {slowCount} slow
                 </Typography>
               </Box>
             </>
+          )}
+          {showSlowOnly && (
+            <Typography
+              onClick={() => setShowSlowOnly(false)}
+              sx={{ fontSize: '0.6875rem', color: colors.fg.subtle, cursor: 'pointer', '&:hover': { color: colors.fg.muted } }}
+            >
+              Showing slow only · ✕
+            </Typography>
           )}
         </Box>
       )}
@@ -619,24 +672,32 @@ export default function TracesPage() {
               </Typography>
             </Box>
           )}
-          {runs.map((run) => (
-            <RunRow
-              key={run.id}
-              run={run}
-              expanded={expandedRunId === run.id}
-              detail={details[run.id] ?? null}
-              detailLoading={detailLoading[run.id] ?? false}
-              detailError={detailError[run.id] ?? null}
-              onToggle={() => handleToggleRun(run.id)}
-              mode={mode}
-              isSlow={medianDuration !== null && run.duration_ms !== null && run.duration_ms > medianDuration * 2}
-            />
-          ))}
+          {runs
+            .filter((run) => !showSlowOnly || (medianDuration !== null && run.duration_ms !== null && run.duration_ms > medianDuration * 2))
+            .map((run) => (
+              <RunRow
+                key={run.id}
+                run={run}
+                expanded={expandedRunId === run.id}
+                detail={details[run.id] ?? null}
+                detailLoading={detailLoading[run.id] ?? false}
+                detailError={detailError[run.id] ?? null}
+                onToggle={() => handleToggleRun(run.id)}
+                mode={mode}
+                isSlow={medianDuration !== null && run.duration_ms !== null && run.duration_ms > medianDuration * 2}
+              />
+            ))}
         </Box>
       )}
 
       {/* Pagination */}
-      {totalPages > 1 && (
+      {showSlowOnly ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+          <Typography sx={{ fontSize: '0.75rem', color: colors.fg.subtle }}>
+            Filtered view — pagination disabled
+          </Typography>
+        </Box>
+      ) : totalPages > 1 && (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
           <Pagination
             count={totalPages}

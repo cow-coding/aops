@@ -9,6 +9,7 @@ import AgentChainsTab from './pages/agent/AgentChainsTab';
 import AgentApiKeysTab from './pages/agent/AgentApiKeysTab';
 import AgentFlowTab from './pages/agent/AgentFlowTab';
 import AgentSettingsTab from './pages/agent/AgentSettingsTab';
+import AgentStatsTab from './pages/agent/AgentStatsTab';
 import ChainCreatePage from './pages/ChainCreatePage';
 import ChainDetailPage from './pages/ChainDetailPage';
 import GroupsPage from './pages/GroupsPage';
@@ -59,12 +60,14 @@ export default function App() {
           <Route path="chains" element={<AgentChainsTab />} />
           <Route path="api-keys" element={<AgentApiKeysTab />} />
           <Route path="flow" element={<AgentFlowTab />} />
+          <Route path="stats" element={<AgentStatsTab />} />
           <Route path="settings" element={<AgentSettingsTab />} />
         </Route>
 
         {/* standalone — AgentDetailLayout 밖 */}
         <Route path="/agents/:id/chains/new" element={<ChainCreatePage />} />
         <Route path="/agents/:id/chains/:chainId" element={<ChainDetailPage />} />
+        <Route path="/agents/:id/chains/:chainId/:tab" element={<ChainDetailPage />} />
 
         <Route path="/groups" element={<GroupsPage />} />
         <Route path="/traces" element={<TracesPage />} />

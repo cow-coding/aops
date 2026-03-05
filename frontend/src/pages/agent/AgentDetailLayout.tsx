@@ -63,7 +63,7 @@ function TabLabel({ label, count }: TabLabelProps) {
   );
 }
 
-const TABS = ['overview', 'chains', 'api-keys', 'flow', 'settings'] as const;
+const TABS = ['overview', 'chains', 'stats', 'flow', 'api-keys', 'settings'] as const;
 type TabSegment = typeof TABS[number];
 
 export default function AgentDetailLayout() {
@@ -183,8 +183,9 @@ export default function AgentDetailLayout() {
         >
           <Tab value="overview" label="Overview" />
           <Tab value="chains" label={<TabLabel label="Chains" count={chains.length} />} />
-          <Tab value="api-keys" label={<TabLabel label="API Keys" count={apiKeys.length} />} />
+          <Tab value="stats" label="Stats" />
           <Tab value="flow" label="Flow" />
+          <Tab value="api-keys" label={<TabLabel label="API Keys" count={apiKeys.length} />} />
           <Tab value="settings" label="Settings" />
         </Tabs>
       </Box>
