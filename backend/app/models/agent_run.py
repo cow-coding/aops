@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -63,3 +63,28 @@ class ChainCallLog(Base):
     output: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     run: Mapped["AgentRun"] = relationship("AgentRun", back_populates="chain_calls")
+
+
+class RunEdge(Base):
+    __tablename__ = "run_edges"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_runs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    agent_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agents.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    source_chain: Mapped[str] = mapped_column(String(255), nullable=False)
+    target_chain: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    __table_args__ = (
+        Index("ix_run_edges_agent_src_tgt", "agent_id", "source_chain", "target_chain"),
+    )
