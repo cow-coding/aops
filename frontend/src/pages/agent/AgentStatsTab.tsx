@@ -113,7 +113,7 @@ export default function AgentStatsTab() {
   const colors = theme.colors;
 
   const [stats, setStats] = useState<AgentStats | null>(null);
-  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
 
   const [timeseries, setTimeseries] = useState<AgentTimeseries | null>(null);
@@ -137,20 +137,23 @@ export default function AgentStatsTab() {
       .finally(() => setTimeseriesLoading(false));
   }
 
-  if (statsLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-        <CircularProgress size={24} />
-      </Box>
-    );
-  }
-
   return (
     <Box>
+      {/* TimeRangeSelector always rendered so it can trigger initial loadTimeseries on mount */}
+      <Box sx={{ mb: 2 }}>
+        <TimeRangeSelector onChange={loadTimeseries} loading={timeseriesLoading} />
+      </Box>
+
+      {statsLoading && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+          <CircularProgress size={24} />
+        </Box>
+      )}
+
       {statsError && <Alert severity="error" sx={{ mb: 2 }}>{statsError}</Alert>}
       {timeseriesError && <Alert severity="error" sx={{ mb: 2 }}>{timeseriesError}</Alert>}
 
-      {!statsError && stats && (
+      {!statsLoading && !statsError && stats && (
         <>
           {/* ── Summary Cards ── */}
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 2, mb: 3 }}>
@@ -228,11 +231,6 @@ export default function AgentStatsTab() {
                 </Box>
               </Box>
             ))}
-          </Box>
-
-          {/* ── Time Range Selector ── */}
-          <Box sx={{ mb: 2 }}>
-            <TimeRangeSelector onChange={loadTimeseries} loading={timeseriesLoading} />
           </Box>
 
           {/* ── Charts ── */}
