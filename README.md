@@ -1,5 +1,7 @@
 # AOps
 
+> Also available in: [한국어](./docs/README.ko.md) | [日本語](./docs/README.ja.md) | [中文](./docs/README.zh.md)
+
 **AOps** is an open-source AgentOps platform for managing, versioning, and operating AI agents and their prompts.
 
 Starting as a "GitHub for Prompts" — a central hub for prompt version control — AOps is designed to grow into a full-featured AgentOps platform covering monitoring, tracing, cost tracking, and evaluation.
@@ -29,15 +31,21 @@ Starting as a "GitHub for Prompts" — a central hub for prompt version control 
 - Aggregated **Flow visualization** in the UI: directed graph of chain call sequences with call counts and average latency per edge
 - Chains that have never been executed appear as dimmed nodes — no hidden chains
 
+### Self-Hosting
+- Deploy with **Docker Compose** or **Kubernetes**
+- Built-in PostgreSQL or bring your own external database
+- See the [Self-Hosting Guide](./docs/self-hosting.md) for details
+
 ---
 
 ## Roadmap
 
 | Category | Status | Details |
 |----------|--------|---------|
-| **Prompt Management** | ✅ Shipped | Chains, personas, version history, rollback |
-| **Tracing** | ✅ Shipped | `aops.run()` context manager, Flow tab visualization |
-| **API Key Management** | ✅ Shipped | Per-agent keys, one-time display |
+| **Prompt Management** | Shipped | Chains, personas, version history, rollback |
+| **Tracing** | Shipped | `aops.run()` context manager, Flow tab visualization |
+| **API Key Management** | Shipped | Per-agent keys, one-time display |
+| **Self-Hosting** | Shipped | Docker Compose, Kubernetes manifests |
 | **Monitoring** | Planned | Agent execution logs, request/response tracking |
 | **Cost Tracking** | Planned | Token usage and cost per agent/chain |
 | **Evaluation** | Planned | Prompt evaluation pipelines, A/B testing |
@@ -50,7 +58,9 @@ Starting as a "GitHub for Prompts" — a central hub for prompt version control 
 ```
 AOps/
 ├── frontend/          # React 18 + TypeScript + MUI + Vite
-└── backend/           # FastAPI + SQLAlchemy async + PostgreSQL + Alembic
+├── backend/           # FastAPI + SQLAlchemy async + PostgreSQL + Alembic
+├── k8s/               # Kubernetes manifests
+└── docs/              # Documentation
 ```
 
 ## Requirements
@@ -65,29 +75,32 @@ AOps/
 
 ## Getting Started
 
-### Backend
+### Option 1: Docker Compose (recommended)
+
+```bash
+cp .env.example .env
+# Edit .env — change POSTGRES_PASSWORD and SECRET_KEY
+
+docker compose --profile db up -d
+```
+
+See the [Self-Hosting Guide](./docs/self-hosting.md) for external DB setup and Kubernetes deployment.
+
+### Option 2: Local Development
+
+**Backend:**
 
 ```bash
 cd backend
 pip install -r requirements.txt
-```
-
-Copy and configure your environment:
-
-```bash
 cp .env.example .env
-```
-
-Run migrations and start the server:
-
-```bash
 python -m alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
 Available at `http://localhost:8000`.
 
-### Frontend
+**Frontend:**
 
 ```bash
 cd frontend
@@ -95,14 +108,7 @@ npm install
 npm run dev
 ```
 
-Available at `http://localhost:3000`.
-In development mode, `/api` requests are proxied to the backend.
-
-### Docker (recommended)
-
-```bash
-docker-compose up
-```
+Available at `http://localhost:3000`. In development mode, `/api` requests are proxied to the backend.
 
 ---
 
