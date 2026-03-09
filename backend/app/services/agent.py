@@ -162,64 +162,53 @@ async def get_agent_stats(
     latency_ms = _latency_ms_expr()
     now = datetime.now(timezone.utc)
 
-    def _base_stmt():
-        return select(
-            func.count().label("total_runs"),
-            func.count().filter(AgentRun.status == "success").label("success_count"),
-            func.count().filter(AgentRun.status == "error").label("error_count"),
-            func.avg(latency_ms).label("avg_latency_ms"),
-            func.percentile_cont(0.95).within_group(latency_ms.asc()).label("p95_latency_ms"),
-        ).where(AgentRun.agent_id == agent_id)
-
     if started_after is not None and started_before is not None:
-        # Period mode: VALUE = selected period, TREND = selected period vs previous equal period
         delta = started_before - started_after
         prev_start = started_after - delta
-
-        row = (await db.execute(
-            _base_stmt()
-            .where(AgentRun.started_at >= started_after)
-            .where(AgentRun.started_at < started_before)
-        )).one()
-
-        prev_row = (await db.execute(
-            _base_stmt()
-            .where(AgentRun.started_at >= prev_start)
-            .where(AgentRun.started_at < started_after)
-        )).one()
-
-        curr_row = row  # VALUE and curr trend are the same period
+        period_start = started_after
+        period_end = started_before
     else:
-        # Default mode: VALUE = all-time, TREND = last 24h vs previous 24h
         period_start = now - timedelta(hours=24)
-        prev_start = period_start - timedelta(hours=24)
+        period_end = now
+        delta = timedelta(hours=24)
+        prev_start = period_start - delta
 
-        row = (await db.execute(_base_stmt())).one()
+    # Single query: CASE WHEN to split current vs previous period
+    is_curr = (AgentRun.started_at >= period_start) & (AgentRun.started_at < period_end)
+    is_prev = (AgentRun.started_at >= prev_start) & (AgentRun.started_at < period_start)
 
-        curr_row = (await db.execute(
-            _base_stmt()
-            .where(AgentRun.started_at >= period_start)
-        )).one()
+    row = (await db.execute(
+        select(
+            # Current period
+            func.count().filter(is_curr).label("curr_total"),
+            func.count().filter(is_curr & (AgentRun.status == "success")).label("curr_success"),
+            func.count().filter(is_curr & (AgentRun.status == "error")).label("curr_error"),
+            func.avg(latency_ms).filter(is_curr).label("curr_avg"),
+            func.percentile_cont(0.95).within_group(latency_ms.asc()).filter(is_curr).label("curr_p95"),
+            # Previous period
+            func.count().filter(is_prev).label("prev_total"),
+            func.avg(latency_ms).filter(is_prev).label("prev_avg"),
+            func.percentile_cont(0.95).within_group(latency_ms.asc()).filter(is_prev).label("prev_p95"),
+        ).where(
+            AgentRun.agent_id == agent_id,
+            AgentRun.started_at >= prev_start,
+            AgentRun.started_at < period_end,
+        )
+    )).one()
 
-        prev_row = (await db.execute(
-            _base_stmt()
-            .where(AgentRun.started_at >= prev_start)
-            .where(AgentRun.started_at < period_start)
-        )).one()
-
-    curr_avg = float(curr_row.avg_latency_ms) if curr_row.avg_latency_ms is not None else None
-    prev_avg = float(prev_row.avg_latency_ms) if prev_row.avg_latency_ms is not None else None
-    curr_p95 = float(curr_row.p95_latency_ms) if curr_row.p95_latency_ms is not None else None
-    prev_p95 = float(prev_row.p95_latency_ms) if prev_row.p95_latency_ms is not None else None
+    curr_avg = float(row.curr_avg) if row.curr_avg is not None else None
+    prev_avg = float(row.prev_avg) if row.prev_avg is not None else None
+    curr_p95 = float(row.curr_p95) if row.curr_p95 is not None else None
+    prev_p95 = float(row.prev_p95) if row.prev_p95 is not None else None
 
     return {
-        "total_runs": row.total_runs,
-        "success_count": row.success_count,
-        "error_count": row.error_count,
-        "avg_latency_ms": float(row.avg_latency_ms) if row.avg_latency_ms is not None else None,
-        "p95_latency_ms": float(row.p95_latency_ms) if row.p95_latency_ms is not None else None,
+        "total_runs": row.curr_total,
+        "success_count": row.curr_success,
+        "error_count": row.curr_error,
+        "avg_latency_ms": curr_avg,
+        "p95_latency_ms": curr_p95,
         "trend": {
-            "total_runs_pct": _pct_change(float(curr_row.total_runs), float(prev_row.total_runs)),
+            "total_runs_pct": _pct_change(float(row.curr_total), float(row.prev_total)),
             "avg_latency_pct": _pct_change(curr_avg, prev_avg),
             "p95_latency_pct": _pct_change(curr_p95, prev_p95),
         },

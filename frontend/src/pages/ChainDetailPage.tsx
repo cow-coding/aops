@@ -630,6 +630,7 @@ export default function ChainDetailPage() {
   const [statsError, setStatsError] = useState<string | null>(null);
 
   const [timeseriesParams, setTimeseriesParams] = useState<TimeseriesParams>({ range: '1h' });
+  const timeseriesParamsRef = useRef<TimeseriesParams>(timeseriesParams);
   const [timeseries, setTimeseries] = useState<ChainTimeseries | null>(null);
   const [timeseriesLoading, setTimeseriesLoading] = useState(false);
   const [timeseriesError, setTimeseriesError] = useState<string | null>(null);
@@ -658,6 +659,7 @@ export default function ChainDetailPage() {
   const loadTimeseries = useCallback((params: TimeseriesParams) => {
     if (!agentId || !chainId) return;
     setTimeseriesParams(params);
+    timeseriesParamsRef.current = params;
     setStatsLoading(true);
     setStatsError(null);
     setTimeseriesLoading(true);
@@ -972,7 +974,7 @@ export default function ChainDetailPage() {
           setEditing(false);
           setForm({});
           setSaveError(null);
-          if (v === 2) loadTimeseries(timeseriesParams);
+          if (v === 2) loadTimeseries(timeseriesParamsRef.current);
           if (v === 3 && !logsLoaded && !logsLoading) loadLogs();
         }}>
           <Tab label="Prompt" />
@@ -1163,6 +1165,11 @@ export default function ChainDetailPage() {
       {/* ── Stats tab ── */}
       {activeTab === 2 && (
         <Box>
+          {/* ── Time Range Selector — always mounted to preserve state ── */}
+          <Box sx={{ mb: 2 }}>
+            <TimeRangeSelector onChange={loadTimeseries} loading={timeseriesLoading} />
+          </Box>
+
           {statsLoading && (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
               <CircularProgress size={28} />
@@ -1237,11 +1244,6 @@ export default function ChainDetailPage() {
                     </Box>
                   </Box>
                 ))}
-              </Box>
-
-              {/* ── Time Range Selector ── */}
-              <Box sx={{ mb: 2 }}>
-                <TimeRangeSelector onChange={loadTimeseries} loading={timeseriesLoading} />
               </Box>
 
               {/* ── Charts ── */}
