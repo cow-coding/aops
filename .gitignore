@@ -2,3 +2,7 @@ frontend/.idea/
 backend/.vite/
 .claude/
 .idea/
+
+# Environment (credentials)
+.env
+k8s/secret.yaml
