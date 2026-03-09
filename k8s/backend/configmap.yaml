@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: agentops
+data:
+  SERVER_URL: "http://localhost"
+  CORS_ORIGINS: '["http://localhost"]'
+  API_V1_PREFIX: "/api/v1"
