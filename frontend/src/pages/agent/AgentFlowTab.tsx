@@ -376,7 +376,7 @@ export default function AgentFlowTab() {
 
   const edgeStyle: React.CSSProperties = { stroke: colors.border.default, strokeWidth: 1.5 };
   const hoveredEdgeStyle: React.CSSProperties = { stroke: colors.border.hover, strokeWidth: 2.5 };
-  const selectedEdgeStyle: React.CSSProperties = { stroke: '#5E6AD2', strokeWidth: 2.5 };
+  const selectedEdgeStyle: React.CSSProperties = { stroke: colors.accent.emphasis, strokeWidth: 2.5 };
   const labelStyle: React.CSSProperties = { fill: colors.fg.subtle, fontSize: '0.6875rem' };
 
   const handleEdgeMouseEnter = useCallback((_: React.MouseEvent, edge: Edge) => {

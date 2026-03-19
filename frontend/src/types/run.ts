@@ -6,6 +6,7 @@ export interface RunSummary {
   ended_at: string | null;
   duration_ms: number | null;
   chain_names: string[];
+  model_names: string[];
   status: 'running' | 'success' | 'error';
 }
 
@@ -17,6 +18,13 @@ export interface RunChainCall {
   called_at: string;
   input: string | null;
   output: string | null;
+  model_name: string | null;
+  prompt_tokens: number | null;
+  completion_tokens: number | null;
+  total_tokens: number | null;
+  input_cost: number | null;
+  output_cost: number | null;
+  total_cost: number | null;
 }
 
 export interface RunDetail {

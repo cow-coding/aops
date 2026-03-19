@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation, Outlet, Navigate } from 'react-router-dom';
-import { Box, Button, CircularProgress, Tab, Tabs, Typography } from '@mui/material';
+import { Alert, Box, Button, CircularProgress, Tab, Tabs, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined';
@@ -63,7 +63,7 @@ function TabLabel({ label, count }: TabLabelProps) {
   );
 }
 
-const TABS = ['overview', 'chains', 'stats', 'traces', 'flow', 'api-keys', 'settings'] as const;
+const TABS = ['overview', 'chains', 'stats', 'traces', 'cost', 'flow', 'api-keys', 'settings'] as const;
 type TabSegment = typeof TABS[number];
 
 export default function AgentDetailLayout() {
@@ -105,7 +105,7 @@ export default function AgentDetailLayout() {
   if (error || !agent) {
     return (
       <Box sx={{ mt: 4 }}>
-        <Typography color="error">{error ?? 'Agent not found'}</Typography>
+        <Alert severity="error" sx={{ mb: 2 }}>{error ?? 'Agent not found'}</Alert>
         <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/agents')} sx={{ mt: 2 }}>
           Back to Agents
         </Button>
@@ -185,6 +185,7 @@ export default function AgentDetailLayout() {
           <Tab value="chains" label={<TabLabel label="Chains" count={chains.length} />} />
           <Tab value="stats" label="Stats" />
           <Tab value="traces" label="Traces" />
+          <Tab value="cost" label="Cost" />
           <Tab value="flow" label="Flow" />
           <Tab value="api-keys" label={<TabLabel label="API Keys" count={apiKeys.length} />} />
           <Tab value="settings" label="Settings" />

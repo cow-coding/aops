@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 from app.models.agent import Agent
 from app.models.agent_group import AgentGroup
 from app.models.agent_run import AgentRun, ChainCallLog, RunEdge, RunErrorDetail
+from app.models.model_pricing import ModelPricing
 from app.models.user_group import UserGroup
 from app.schemas.run import (
     AgentRunCreate,
@@ -49,6 +50,10 @@ async def create_run(
             output=call.output,
             status=call.status,
             error_message=call.error_message,
+            model_name=call.model_name,
+            prompt_tokens=call.prompt_tokens,
+            completion_tokens=call.completion_tokens,
+            total_tokens=call.total_tokens,
         )
         db.add(log)
         chain_names.append(call.chain_name)
@@ -143,14 +148,17 @@ async def list_runs(
 
     # Fetch chain names for all runs in one query, ordered by call_order
     chain_rows = (await db.execute(
-        select(ChainCallLog.run_id, ChainCallLog.chain_name)
+        select(ChainCallLog.run_id, ChainCallLog.chain_name, ChainCallLog.model_name)
         .where(ChainCallLog.run_id.in_(run_ids))
         .order_by(ChainCallLog.run_id, ChainCallLog.call_order)
     )).all()
 
     chains_by_run: dict[uuid.UUID, list[str]] = defaultdict(list)
+    models_by_run: dict[uuid.UUID, list[str]] = defaultdict(list)
     for cr in chain_rows:
         chains_by_run[cr.run_id].append(cr.chain_name)
+        if cr.model_name and cr.model_name not in models_by_run[cr.run_id]:
+            models_by_run[cr.run_id].append(cr.model_name)
 
     items = [
         RunSummary(
@@ -161,6 +169,7 @@ async def list_runs(
             ended_at=row.AgentRun.ended_at,
             duration_ms=_duration_ms(row.AgentRun.started_at, row.AgentRun.ended_at),
             chain_names=chains_by_run[row.AgentRun.id],
+            model_names=models_by_run[row.AgentRun.id],
             status=row.AgentRun.status,
         )
         for row in rows
@@ -194,6 +203,48 @@ async def get_run(
     run = row.AgentRun
     chain_calls = sorted(run.chain_calls, key=lambda c: c.call_order)
 
+    # Fetch pricing for all models used in this run
+    model_names = list({c.model_name for c in chain_calls if c.model_name is not None})
+    pricing_map: dict[str, tuple[float | None, float | None]] = {}
+    if model_names:
+        pricing_rows = (
+            await db.execute(
+                select(
+                    ModelPricing.model_name,
+                    ModelPricing.input_cost_per_token,
+                    ModelPricing.output_cost_per_token,
+                ).where(ModelPricing.model_name.in_(model_names))
+            )
+        ).all()
+        for pr in pricing_rows:
+            pricing_map[pr.model_name] = (
+                float(pr.input_cost_per_token) if pr.input_cost_per_token is not None else None,
+                float(pr.output_cost_per_token) if pr.output_cost_per_token is not None else None,
+            )
+
+    def _compute_costs(
+        c: ChainCallLog,
+    ) -> tuple[float | None, float | None, float | None]:
+        if c.model_name is None or c.model_name not in pricing_map:
+            return None, None, None
+        input_cpt, output_cpt = pricing_map[c.model_name]
+        input_cost = (
+            c.prompt_tokens * input_cpt
+            if c.prompt_tokens is not None and input_cpt is not None
+            else None
+        )
+        output_cost = (
+            c.completion_tokens * output_cpt
+            if c.completion_tokens is not None and output_cpt is not None
+            else None
+        )
+        total_cost = (
+            input_cost + output_cost
+            if input_cost is not None and output_cost is not None
+            else None
+        )
+        return input_cost, output_cost, total_cost
+
     return RunDetail(
         id=run.id,
         agent_id=run.agent_id,
@@ -210,6 +261,11 @@ async def get_run(
                 called_at=c.called_at,
                 input=c.input,
                 output=c.output,
+                model_name=c.model_name,
+                prompt_tokens=c.prompt_tokens,
+                completion_tokens=c.completion_tokens,
+                total_tokens=c.total_tokens,
+                **dict(zip(("input_cost", "output_cost", "total_cost"), _compute_costs(c))),
             )
             for c in chain_calls
         ],

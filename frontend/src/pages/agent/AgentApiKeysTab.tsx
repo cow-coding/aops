@@ -324,8 +324,8 @@ export default function AgentApiKeysTab() {
       <Divider />
 
       {apiKeys.length === 0 ? (
-        <Box sx={{ py: 5, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <KeyOutlinedIcon sx={{ fontSize: 44, color: colors.fg.subtle }} />
+        <Box sx={{ py: 6, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <KeyOutlinedIcon sx={{ fontSize: 48, color: colors.fg.subtle }} />
           <Typography
             variant="body1"
             sx={{ color: colors.fg.default, mt: 2, mb: 0.5, fontWeight: 500 }}

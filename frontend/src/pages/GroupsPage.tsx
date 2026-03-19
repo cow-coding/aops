@@ -127,7 +127,7 @@ function CreateGroupDialog({
           onClick={handleSubmit}
           disabled={!name.trim() || submitting}
         >
-          {submitting ? <CircularProgress size={16} sx={{ color: 'white' }} /> : 'Create group'}
+          {submitting ? <CircularProgress size={16} sx={{ color: 'inherit' }} /> : 'Create group'}
         </Button>
       </DialogActions>
     </Dialog>
@@ -162,7 +162,7 @@ export default function GroupsPage() {
   if (error) {
     return (
       <Box sx={{ mt: 4 }}>
-        <Typography color="error">Failed to load groups: {error}</Typography>
+        <Alert severity="error">Failed to load groups: {error}</Alert>
       </Box>
     );
   }

@@ -11,11 +11,13 @@ import AgentFlowTab from './pages/agent/AgentFlowTab';
 import AgentSettingsTab from './pages/agent/AgentSettingsTab';
 import AgentStatsTab from './pages/agent/AgentStatsTab';
 import AgentTracesTab from './pages/agent/AgentTracesTab';
+import AgentCostTab from './pages/agent/AgentCostTab';
 import ChainCreatePage from './pages/ChainCreatePage';
 import ChainDetailPage from './pages/ChainDetailPage';
 import GroupsPage from './pages/GroupsPage';
 import ProfilePage from './pages/ProfilePage';
 import TracesPage from './pages/TracesPage';
+import CostPage from './pages/CostPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import { Box, CircularProgress } from '@mui/material';
@@ -64,6 +66,7 @@ export default function App() {
           <Route path="flow" element={<AgentFlowTab />} />
           <Route path="stats" element={<AgentStatsTab />} />
           <Route path="traces" element={<AgentTracesTab />} />
+          <Route path="cost" element={<AgentCostTab />} />
           <Route path="settings" element={<AgentSettingsTab />} />
         </Route>
 
@@ -74,6 +77,7 @@ export default function App() {
 
         <Route path="/groups" element={<GroupsPage />} />
         <Route path="/traces" element={<TracesPage />} />
+        <Route path="/cost" element={<CostPage />} />
         <Route path="/profile" element={<ProfilePage />} />
       </Route>
     </Routes>

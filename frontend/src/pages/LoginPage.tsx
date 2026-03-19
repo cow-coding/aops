@@ -141,7 +141,7 @@ export default function LoginPage() {
               sx={{ mt: 0.5 }}
             >
               {submitting ? (
-                <CircularProgress size={16} sx={{ color: 'white' }} />
+                <CircularProgress size={16} sx={{ color: 'inherit' }} />
               ) : (
                 'Sign in'
               )}

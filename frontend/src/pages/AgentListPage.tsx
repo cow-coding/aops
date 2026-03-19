@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  Alert,
   Box,
   Button,
   InputAdornment,
@@ -62,7 +63,7 @@ export default function AgentListPage() {
   if (error) {
     return (
       <Box sx={{ mt: 4 }}>
-        <Typography color="error">Failed to load agents: {error}</Typography>
+        <Alert severity="error">Failed to load agents: {error}</Alert>
       </Box>
     );
   }

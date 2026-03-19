@@ -13,6 +13,10 @@ class ChainCallLogCreate(BaseModel):
     output: str | None = None
     status: Literal["success", "error"] = "success"
     error_message: str | None = None
+    model_name: str | None = None
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    total_tokens: int | None = None
 
 
 class AgentRunCreate(BaseModel):
@@ -46,6 +50,13 @@ class ChainCallLogDetail(BaseModel):
     called_at: datetime
     input: str | None
     output: str | None
+    model_name: str | None = None
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    total_tokens: int | None = None
+    input_cost: float | None = None
+    output_cost: float | None = None
+    total_cost: float | None = None
 
 
 class RunSummary(BaseModel):
@@ -56,6 +67,7 @@ class RunSummary(BaseModel):
     ended_at: datetime | None
     duration_ms: int | None
     chain_names: list[str]
+    model_names: list[str]
     status: Literal["success", "error", "running"]
 
 
