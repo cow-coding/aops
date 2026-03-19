@@ -216,6 +216,7 @@ function RunDetailPanel({ detail, mode, chainLatencyMap }: { detail: RunDetail; 
   const uniqueModels = getUniqueModels(detail.chain_calls);
   const modelsAreUniform = uniqueModels.length <= 1;
 
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
       {detail.chain_calls.map((call) => {
@@ -280,11 +281,51 @@ function RunDetailPanel({ detail, mode, chainLatencyMap }: { detail: RunDetail; 
                 </Tooltip>
               )}
               {call.total_tokens !== null && (
-                <Typography sx={{ fontSize: '0.6875rem', color: colors.fg.subtle }}>
-                  {call.prompt_tokens !== null && call.completion_tokens !== null
-                    ? `${call.prompt_tokens.toLocaleString()} + ${call.completion_tokens.toLocaleString()} tokens`
-                    : `${call.total_tokens.toLocaleString()} tokens`}
-                </Typography>
+                <Box sx={{
+                  display: 'inline-flex', alignItems: 'center',
+                  borderRadius: '4px',
+                  border: `1px solid ${colors.border.muted}`,
+                  overflow: 'hidden',
+                  height: 20,
+                }}>
+                  {call.prompt_tokens !== null && call.completion_tokens !== null ? (
+                    <>
+                      {/* Input tokens */}
+                      <Box sx={{
+                        display: 'flex', alignItems: 'center', gap: 0.375,
+                        px: 0.625, height: '100%',
+                        fontSize: '0.625rem',
+                        color: colors.terminal.blue,
+                        letterSpacing: '0.01em',
+                      }}>
+                        <Box component="span" sx={{ fontSize: '0.5625rem', fontWeight: 700, opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>in</Box>
+                        <Box component="span" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{call.prompt_tokens.toLocaleString()}</Box>
+                      </Box>
+                      {/* Separator */}
+                      <Box sx={{ width: '1px', height: 10, backgroundColor: colors.border.muted, flexShrink: 0 }} />
+                      {/* Output tokens */}
+                      <Box sx={{
+                        display: 'flex', alignItems: 'center', gap: 0.375,
+                        px: 0.625, height: '100%',
+                        fontSize: '0.625rem',
+                        color: colors.terminal.purple,
+                        letterSpacing: '0.01em',
+                      }}>
+                        <Box component="span" sx={{ fontSize: '0.5625rem', fontWeight: 700, opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>out</Box>
+                        <Box component="span" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{call.completion_tokens.toLocaleString()}</Box>
+                      </Box>
+                    </>
+                  ) : (
+                    <Box sx={{
+                      display: 'flex', alignItems: 'center', gap: 0.375,
+                      px: 0.625, height: '100%',
+                      fontSize: '0.625rem', color: colors.fg.subtle,
+                    }}>
+                      <Box component="span" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{call.total_tokens.toLocaleString()}</Box>
+                      <Box component="span" sx={{ fontSize: '0.5625rem', opacity: 0.6 }}>tok</Box>
+                    </Box>
+                  )}
+                </Box>
               )}
               <Typography sx={{ fontSize: '0.6875rem', color: colors.fg.subtle, ml: 'auto' }}>
                 {formatDate(call.called_at)}
@@ -496,7 +537,26 @@ function RunRow({
       </AccordionSummary>
       <AccordionDetails sx={{ px: 2, pt: 0, pb: 2 }}>
         <Divider sx={{ mb: 1 }} />
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5, mb: 1.5 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+          {/* Run cost */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            {detail && (() => {
+              const cost = detail.chain_calls.reduce<number | null>((acc, c) => {
+                if (c.total_cost === null) return acc;
+                return (acc ?? 0) + c.total_cost;
+              }, null);
+              if (cost === null) return null;
+              return (
+                <>
+                  <Typography sx={{ fontSize: '0.6875rem', color: colors.fg.subtle }}>Run cost</Typography>
+                  <Typography sx={{ fontSize: '0.6875rem', color: colors.accent.fg, fontWeight: 600 }}>
+                    ${cost < 0.01 ? cost.toFixed(6) : cost.toFixed(4)}
+                  </Typography>
+                </>
+              );
+            })()}
+          </Box>
+          <Box sx={{ display: 'flex', gap: 0.5 }}>
           {showViewError && run.status === 'error' && (
             <Button
               size="small"
@@ -527,6 +587,7 @@ function RunRow({
           >
             View Agent
           </Button>
+          </Box>
         </Box>
         {detailLoading && (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>

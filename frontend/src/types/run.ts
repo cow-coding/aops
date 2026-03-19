@@ -22,6 +22,9 @@ export interface RunChainCall {
   prompt_tokens: number | null;
   completion_tokens: number | null;
   total_tokens: number | null;
+  input_cost: number | null;
+  output_cost: number | null;
+  total_cost: number | null;
 }
 
 export interface RunDetail {
