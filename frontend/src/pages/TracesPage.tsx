@@ -25,9 +25,10 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import NorthEastIcon from '@mui/icons-material/NorthEast';
 import TimelineOutlinedIcon from '@mui/icons-material/TimelineOutlined';
+import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import type { Agent } from '../types/agent';
-import type { RunSummary, RunDetail } from '../types/run';
+import type { RunSummary, RunDetail, RunChainCall } from '../types/run';
 import { agentApi } from '../services/agentApi';
 import { chainApi } from '../services/chainApi';
 import { runsApi } from '../services/runsApi';
@@ -111,6 +112,67 @@ function timeRangeToAfter(range: TimeRange): string {
 
 const PAGE_SIZE = 30;
 
+// ── Model badge helpers ───────────────────────────────────────────────────────
+
+function getUniqueModels(calls: RunChainCall[]): string[] {
+  const seen = new Set<string>();
+  for (const c of calls) {
+    if (c.model_name !== null) seen.add(c.model_name);
+  }
+  return [...seen];
+}
+
+function RunModelBadge({ models }: { models: string[] }) {
+  const theme = useTheme();
+  const colors = theme.colors;
+
+  if (models.length === 0) return null;
+
+  if (models.length === 1) {
+    return (
+      <Chip
+        icon={<SmartToyOutlinedIcon sx={{ fontSize: '0.7rem !important' }} />}
+        label={models[0]}
+        size="small"
+        variant="outlined"
+        sx={{
+          height: 20,
+          fontSize: '0.6875rem',
+          color: colors.fg.muted,
+          borderColor: colors.border.muted,
+          backgroundColor: 'transparent',
+          '& .MuiChip-label': { px: 0.75 },
+          '& .MuiChip-icon': { color: colors.fg.subtle, ml: 0.5 },
+        }}
+      />
+    );
+  }
+
+  // Multiple models
+  return (
+    <Tooltip
+      title={models.join(', ')}
+      placement="top"
+    >
+      <Chip
+        icon={<SmartToyOutlinedIcon sx={{ fontSize: '0.7rem !important' }} />}
+        label={`${models[0]} +${models.length - 1}`}
+        size="small"
+        variant="outlined"
+        sx={{
+          height: 20,
+          fontSize: '0.6875rem',
+          color: colors.fg.muted,
+          borderColor: colors.border.muted,
+          backgroundColor: 'transparent',
+          '& .MuiChip-label': { px: 0.75 },
+          '& .MuiChip-icon': { color: colors.fg.subtle, ml: 0.5 },
+        }}
+      />
+    </Tooltip>
+  );
+}
+
 // ── Chain flow chips ──────────────────────────────────────────────────────────
 
 function ChainFlowChips({ names }: { names: string[] }) {
@@ -151,6 +213,9 @@ function RunDetailPanel({ detail, mode, chainLatencyMap }: { detail: RunDetail; 
   const theme = useTheme();
   const colors = theme.colors;
 
+  const uniqueModels = getUniqueModels(detail.chain_calls);
+  const modelsAreUniform = uniqueModels.length <= 1;
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
       {detail.chain_calls.map((call) => {
@@ -180,6 +245,23 @@ function RunDetailPanel({ detail, mode, chainLatencyMap }: { detail: RunDetail; 
               }}>
                 {call.chain_name}
               </Box>
+              {!modelsAreUniform && call.model_name !== null && (
+                <Chip
+                  icon={<SmartToyOutlinedIcon sx={{ fontSize: '0.7rem !important' }} />}
+                  label={call.model_name}
+                  size="small"
+                  variant="outlined"
+                  sx={{
+                    height: 20,
+                    fontSize: '0.6875rem',
+                    color: colors.fg.muted,
+                    borderColor: colors.border.muted,
+                    backgroundColor: 'transparent',
+                    '& .MuiChip-label': { px: 0.75 },
+                    '& .MuiChip-icon': { color: colors.fg.subtle, ml: 0.5 },
+                  }}
+                />
+              )}
               {call.latency_ms !== null && (
                 <Tooltip
                   title={isSlowCall ? `Slow — this call took ${call.latency_ms.toLocaleString()}ms (p95: ${p95.toLocaleString()}ms)` : ''}
@@ -399,6 +481,10 @@ function RunRow({
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <ChainFlowChips names={run.chain_names} />
           </Box>
+          {/* Model badge col */}
+          <Box sx={{ width: 160, flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+            <RunModelBadge models={run.model_names} />
+          </Box>
         </Box>
       </AccordionSummary>
       <AccordionDetails sx={{ px: 2, pt: 0, pb: 2 }}>
@@ -534,7 +620,7 @@ export default function TracesPage({ agentId: fixedAgentId, showStackTrace = fal
     setError(null);
     runsApi.list({
       agent_id: effectiveAgentId || undefined,
-      started_after: timeRangeToAfter(timeRange),
+      started_after: fixedAgentId ? undefined : timeRangeToAfter(timeRange),
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,
       source_chain: edgeSource ?? undefined,
@@ -548,7 +634,7 @@ export default function TracesPage({ agentId: fixedAgentId, showStackTrace = fal
       })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [effectiveAgentId, timeRange, page, edgeSource, edgeTarget, statusFilter]);
+  }, [fixedAgentId, effectiveAgentId, timeRange, page, edgeSource, edgeTarget, statusFilter]);
 
   useEffect(() => { loadRuns(); }, [loadRuns]);
 
@@ -560,7 +646,7 @@ export default function TracesPage({ agentId: fixedAgentId, showStackTrace = fal
     const id = setInterval(() => {
       runsApi.list({
         agent_id: effectiveAgentId || undefined,
-        started_after: timeRangeToAfter(timeRange),
+        started_after: fixedAgentId ? undefined : timeRangeToAfter(timeRange),
         limit: PAGE_SIZE,
         offset: 0,
         source_chain: edgeSource ?? undefined,
@@ -827,6 +913,7 @@ export default function TracesPage({ agentId: fixedAgentId, showStackTrace = fal
           { label: 'Duration', width: 72 },
           { label: 'Calls', width: 48 },
           { label: 'Chain Flow', flex: 1 },
+          { label: 'Model', width: 160 },
         ].map(({ label, width, flex }) => (
           <Typography
             key={label}

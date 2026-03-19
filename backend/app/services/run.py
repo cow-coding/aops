@@ -49,6 +49,7 @@ async def create_run(
             output=call.output,
             status=call.status,
             error_message=call.error_message,
+            model_name=call.model_name,
         )
         db.add(log)
         chain_names.append(call.chain_name)
@@ -143,14 +144,17 @@ async def list_runs(
 
     # Fetch chain names for all runs in one query, ordered by call_order
     chain_rows = (await db.execute(
-        select(ChainCallLog.run_id, ChainCallLog.chain_name)
+        select(ChainCallLog.run_id, ChainCallLog.chain_name, ChainCallLog.model_name)
         .where(ChainCallLog.run_id.in_(run_ids))
         .order_by(ChainCallLog.run_id, ChainCallLog.call_order)
     )).all()
 
     chains_by_run: dict[uuid.UUID, list[str]] = defaultdict(list)
+    models_by_run: dict[uuid.UUID, list[str]] = defaultdict(list)
     for cr in chain_rows:
         chains_by_run[cr.run_id].append(cr.chain_name)
+        if cr.model_name and cr.model_name not in models_by_run[cr.run_id]:
+            models_by_run[cr.run_id].append(cr.model_name)
 
     items = [
         RunSummary(
@@ -161,6 +165,7 @@ async def list_runs(
             ended_at=row.AgentRun.ended_at,
             duration_ms=_duration_ms(row.AgentRun.started_at, row.AgentRun.ended_at),
             chain_names=chains_by_run[row.AgentRun.id],
+            model_names=models_by_run[row.AgentRun.id],
             status=row.AgentRun.status,
         )
         for row in rows
@@ -210,6 +215,7 @@ async def get_run(
                 called_at=c.called_at,
                 input=c.input,
                 output=c.output,
+                model_name=c.model_name,
             )
             for c in chain_calls
         ],

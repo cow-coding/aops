@@ -66,6 +66,7 @@ class ChainCallLog(Base):
     output: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="success")
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    model_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     run: Mapped["AgentRun"] = relationship("AgentRun", back_populates="chain_calls")
 
