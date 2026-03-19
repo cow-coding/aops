@@ -50,6 +50,9 @@ async def create_run(
             status=call.status,
             error_message=call.error_message,
             model_name=call.model_name,
+            prompt_tokens=call.prompt_tokens,
+            completion_tokens=call.completion_tokens,
+            total_tokens=call.total_tokens,
         )
         db.add(log)
         chain_names.append(call.chain_name)
@@ -216,6 +219,9 @@ async def get_run(
                 input=c.input,
                 output=c.output,
                 model_name=c.model_name,
+                prompt_tokens=c.prompt_tokens,
+                completion_tokens=c.completion_tokens,
+                total_tokens=c.total_tokens,
             )
             for c in chain_calls
         ],

@@ -19,6 +19,9 @@ export interface RunChainCall {
   input: string | null;
   output: string | null;
   model_name: string | null;
+  prompt_tokens: number | null;
+  completion_tokens: number | null;
+  total_tokens: number | null;
 }
 
 export interface RunDetail {
