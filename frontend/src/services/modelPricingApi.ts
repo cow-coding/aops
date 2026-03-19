@@ -80,6 +80,22 @@ export interface CostTimeseriesResponse {
   period_hours: number | null;
 }
 
+export interface CostByChainItem {
+  agent_id: string;
+  agent_name: string;
+  chain_name: string;
+  call_count: number;
+  total_prompt_tokens: number;
+  total_completion_tokens: number;
+  total_tokens: number;
+  total_cost: number | null;
+}
+
+export interface CostByChainResponse {
+  items: CostByChainItem[];
+  total_cost: number | null;
+}
+
 export const modelPricingApi = {
   list: (params?: ModelPricingListParams) => {
     const qs = new URLSearchParams();
@@ -108,6 +124,13 @@ export const modelPricingApi = {
     if (limit !== undefined) qs.set('limit', String(limit));
     const query = qs.toString() ? `?${qs.toString()}` : '';
     return api.get<CostByAgentResponse>(`/model-pricing/cost-by-agent${query}`);
+  },
+
+  costByChain: (hours?: number): Promise<CostByChainResponse> => {
+    const qs = new URLSearchParams();
+    if (hours !== undefined) qs.set('hours', String(hours));
+    const query = qs.toString() ? `?${qs.toString()}` : '';
+    return api.get<CostByChainResponse>(`/model-pricing/cost-by-chain${query}`);
   },
 
   costTimeseries: (hours?: number, groupBy?: 'agent' | 'model') => {

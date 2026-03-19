@@ -72,6 +72,22 @@ class CostByAgentResponse(BaseModel):
     total_tokens: int
 
 
+class CostByChainItem(BaseModel):
+    agent_id: uuid.UUID
+    agent_name: str
+    chain_name: str
+    call_count: int
+    total_prompt_tokens: int
+    total_completion_tokens: int
+    total_tokens: int
+    total_cost: float | None
+
+
+class CostByChainResponse(BaseModel):
+    items: list[CostByChainItem]
+    total_cost: float | None
+
+
 class CostTimeseriesBucket(BaseModel):
     bucket: str  # ISO date string e.g. "2026-03-19"
     group: str   # agent_name or model_name depending on group_by

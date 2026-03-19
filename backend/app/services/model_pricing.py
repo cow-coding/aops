@@ -14,6 +14,8 @@ from app.schemas.model_pricing import (
     ActiveModelResponse,
     CostByAgentItem,
     CostByAgentResponse,
+    CostByChainItem,
+    CostByChainResponse,
     CostSummaryResponse,
     CostTimeseriesBucket,
     CostTimeseriesResponse,
@@ -349,6 +351,74 @@ async def get_cost_by_agent(
         total_runs=total_runs,
         total_tokens=total_tokens,
     )
+
+
+async def get_cost_by_chain(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    hours: int | None = None,
+    limit: int = 50,
+) -> CostByChainResponse:
+    """Return cost and token usage aggregated per (agent, chain) for the given user."""
+    since: datetime | None = None
+    if hours is not None:
+        since = datetime.now(tz=timezone.utc) - timedelta(hours=hours)
+
+    cost_per_row = (
+        ChainCallLog.prompt_tokens * ModelPricing.input_cost_per_token
+        + ChainCallLog.completion_tokens * ModelPricing.output_cost_per_token
+    )
+
+    stmt = (
+        select(
+            Agent.id.label("agent_id"),
+            Agent.name.label("agent_name"),
+            ChainCallLog.chain_name,
+            func.count().label("call_count"),
+            func.coalesce(func.sum(ChainCallLog.prompt_tokens), 0).label("total_prompt_tokens"),
+            func.coalesce(func.sum(ChainCallLog.completion_tokens), 0).label("total_completion_tokens"),
+            func.coalesce(func.sum(ChainCallLog.total_tokens), 0).label("total_tokens"),
+            func.sum(cost_per_row).label("total_cost"),
+        )
+        .join(AgentRun, ChainCallLog.run_id == AgentRun.id)
+        .join(Agent, AgentRun.agent_id == Agent.id)
+        .outerjoin(ModelPricing, ChainCallLog.model_name == ModelPricing.model_name)
+        .where(ChainCallLog.model_name.is_not(None))
+        .where(Agent.owner_id == user_id)
+    )
+    if since is not None:
+        stmt = stmt.where(ChainCallLog.called_at >= since)
+
+    stmt = (
+        stmt
+        .group_by(Agent.id, Agent.name, ChainCallLog.chain_name)
+        .order_by(func.sum(cost_per_row).desc().nulls_last())
+        .limit(limit)
+    )
+
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    items: list[CostByChainItem] = []
+    for row in rows:
+        total_cost = float(row.total_cost) if row.total_cost is not None else None
+        items.append(
+            CostByChainItem(
+                agent_id=row.agent_id,
+                agent_name=row.agent_name,
+                chain_name=row.chain_name,
+                call_count=row.call_count,
+                total_prompt_tokens=row.total_prompt_tokens,
+                total_completion_tokens=row.total_completion_tokens,
+                total_tokens=row.total_tokens,
+                total_cost=total_cost,
+            )
+        )
+
+    costs = [i.total_cost for i in items if i.total_cost is not None]
+    overall_total_cost: float | None = sum(costs) if costs else None
+
+    return CostByChainResponse(items=items, total_cost=overall_total_cost)
 
 
 async def get_cost_timeseries(
