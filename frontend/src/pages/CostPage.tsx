@@ -25,6 +25,7 @@ import SyncIcon from '@mui/icons-material/Sync';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import FunctionsOutlinedIcon from '@mui/icons-material/FunctionsOutlined';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import {
   AreaChart,
   Area,
@@ -37,10 +38,7 @@ import {
 } from 'recharts';
 import type {
   ModelPricing,
-  CostSummary,
-  ActiveModel,
   CostByAgentItem,
-  CostByChainItem,
 } from '../services/modelPricingApi';
 import { modelPricingApi } from '../services/modelPricingApi';
 import { monoFontFamily } from '../theme';
@@ -862,284 +860,13 @@ function SpendPulse({
   );
 }
 
-// ── AgentCostTree — Section 2 left panel ─────────────────────────────────────
+// ── CostTrendChart — Full-width trend chart ───────────────────────────────────
 
-function AgentCostTree({
-  items,
-  totalCost,
-  loading,
-  onAgentClick,
-}: {
-  items: CostByChainItem[];
-  totalCost: number | null;
-  loading: boolean;
-  onAgentClick: (agentId: string) => void;
-}) {
-  const theme = useTheme();
-  const colors = theme.colors;
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [showAll, setShowAll] = useState(false);
-
-  // Group items by agent
-  const agentMap = new Map<string, { name: string; chains: CostByChainItem[]; totalCost: number | null }>();
-  for (const item of items) {
-    if (!agentMap.has(item.agent_id)) {
-      agentMap.set(item.agent_id, { name: item.agent_name, chains: [], totalCost: null });
-    }
-    const entry = agentMap.get(item.agent_id)!;
-    entry.chains.push(item);
-    if (item.total_cost !== null) {
-      entry.totalCost = (entry.totalCost ?? 0) + item.total_cost;
-    }
-  }
-
-  const agents = [...agentMap.entries()].sort(
-    (a, b) => (b[1].totalCost ?? -1) - (a[1].totalCost ?? -1),
-  );
-
-  const TOP = 5;
-  const displayed = showAll ? agents : agents.slice(0, TOP);
-  const hidden = agents.length - TOP;
-
-  const toggleExpand = (id: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  if (loading) {
-    return (
-      <Box sx={{ py: 6, display: 'flex', justifyContent: 'center' }}>
-        <CircularProgress size={28} />
-      </Box>
-    );
-  }
-
-  if (agents.length === 0) {
-    return (
-      <Box sx={{ py: 6, display: 'flex', justifyContent: 'center' }}>
-        <Typography sx={{ fontSize: '0.8125rem', color: colors.fg.subtle }}>No agent data</Typography>
-      </Box>
-    );
-  }
-
-  const maxCost = agents[0][1].totalCost ?? 0;
-
-  return (
-    <Box>
-      {displayed.map(([agentId, agent]) => {
-        const isOpen = expanded.has(agentId);
-        const pct = totalCost && agent.totalCost !== null ? (agent.totalCost / totalCost) * 100 : null;
-        const barWidth = maxCost > 0 && agent.totalCost !== null ? (agent.totalCost / maxCost) * 100 : 0;
-
-        return (
-          <Box key={agentId} sx={{ mb: 1.5 }}>
-            {/* Agent row */}
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                py: 0.75,
-                cursor: 'pointer',
-                borderRadius: '4px',
-                px: 0.5,
-                '&:hover': { backgroundColor: colors.canvas.elevated },
-                transition: 'background 0.1s ease',
-              }}
-              onClick={() => toggleExpand(agentId)}
-            >
-              <ExpandMoreIcon
-                sx={{
-                  fontSize: 14,
-                  color: colors.fg.subtle,
-                  transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
-                  transition: 'transform 0.15s ease',
-                  flexShrink: 0,
-                }}
-              />
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', mb: 0.5 }}>
-                  <Typography
-                    onClick={(e) => { e.stopPropagation(); onAgentClick(agentId); }}
-                    sx={{
-                      fontSize: '0.8125rem',
-                      fontWeight: 600,
-                      color: colors.fg.default,
-                      fontFamily: monoFontFamily,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      maxWidth: '60%',
-                      '&:hover': { color: colors.accent.fg, textDecoration: 'underline' },
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {agent.name}
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexShrink: 0 }}>
-                    <Typography
-                      sx={{
-                        fontSize: '0.75rem',
-                        fontWeight: 600,
-                        color: colors.accent.fg,
-                        fontFamily: monoFontFamily,
-                        fontVariantNumeric: 'tabular-nums',
-                      }}
-                    >
-                      {formatModelCost(agent.totalCost)}
-                    </Typography>
-                    {pct !== null && (
-                      <Typography sx={{ fontSize: '0.6875rem', color: colors.fg.subtle, fontVariantNumeric: 'tabular-nums' }}>
-                        {pct.toFixed(1)}%
-                      </Typography>
-                    )}
-                  </Box>
-                </Box>
-                {/* Agent bar */}
-                <Box
-                  sx={{
-                    height: 6,
-                    borderRadius: 3,
-                    backgroundColor: colors.border.muted,
-                    overflow: 'hidden',
-                  }}
-                >
-                  <Box
-                    sx={{
-                      width: `${barWidth}%`,
-                      height: '100%',
-                      borderRadius: 3,
-                      backgroundColor: colors.accent.emphasis,
-                      transition: 'width 0.3s ease',
-                    }}
-                  />
-                </Box>
-              </Box>
-            </Box>
-
-            {/* Chain rows */}
-            {isOpen && (
-              <Box sx={{ pl: 3.5, borderLeft: `1px solid ${colors.border.muted}`, ml: 1.25, mt: 0.5 }}>
-                {agent.chains.map((chain) => {
-                  const chainBarWidth =
-                    agent.totalCost && chain.total_cost !== null
-                      ? (chain.total_cost / (agent.totalCost ?? 1)) * 100
-                      : 0;
-                  return (
-                    <Box key={chain.chain_name} sx={{ mb: 1, pl: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', mb: 0.375 }}>
-                        <Typography
-                          sx={{
-                            fontSize: '0.75rem',
-                            color: colors.fg.muted,
-                            fontFamily: monoFontFamily,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            maxWidth: '60%',
-                          }}
-                        >
-                          {chain.chain_name}
-                        </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, flexShrink: 0 }}>
-                          <Typography
-                            sx={{
-                              fontSize: '0.6875rem',
-                              color: colors.fg.default,
-                              fontFamily: monoFontFamily,
-                              fontVariantNumeric: 'tabular-nums',
-                            }}
-                          >
-                            {formatModelCost(chain.total_cost)}
-                          </Typography>
-                          <Typography sx={{ fontSize: '0.625rem', color: colors.fg.subtle, fontVariantNumeric: 'tabular-nums' }}>
-                            {chain.call_count}×
-                          </Typography>
-                        </Box>
-                      </Box>
-                      <Box
-                        sx={{
-                          height: 3,
-                          borderRadius: 1.5,
-                          backgroundColor: colors.border.muted,
-                          overflow: 'hidden',
-                        }}
-                      >
-                        <Box
-                          sx={{
-                            width: `${chainBarWidth}%`,
-                            height: '100%',
-                            borderRadius: 1.5,
-                            backgroundColor: colors.fg.subtle,
-                          }}
-                        />
-                      </Box>
-                    </Box>
-                  );
-                })}
-              </Box>
-            )}
-          </Box>
-        );
-      })}
-
-      {!showAll && hidden > 0 && (
-        <Typography
-          onClick={() => setShowAll(true)}
-          sx={{
-            fontSize: '0.75rem',
-            color: colors.accent.fg,
-            cursor: 'pointer',
-            mt: 0.5,
-            '&:hover': { textDecoration: 'underline' },
-          }}
-        >
-          Show {hidden} more
-        </Typography>
-      )}
-      {showAll && agents.length > TOP && (
-        <Typography
-          onClick={() => setShowAll(false)}
-          sx={{
-            fontSize: '0.75rem',
-            color: colors.accent.fg,
-            cursor: 'pointer',
-            mt: 0.5,
-            '&:hover': { textDecoration: 'underline' },
-          }}
-        >
-          Show less
-        </Typography>
-      )}
-    </Box>
-  );
-}
-
-// ── CostBreakdownSection — Section 2 ─────────────────────────────────────────
-
-type ChartGroupBy = 'agent' | 'model';
-
-function CostBreakdownSection({
-  period,
-  chainData,
-  chainLoading,
-  chainTotalCost,
-  onAgentSelect,
-}: {
-  period: UsagePeriod;
-  chainData: CostByChainItem[];
-  chainLoading: boolean;
-  chainTotalCost: number | null;
-  onAgentSelect: (agentId: string) => void;
-}) {
+function CostTrendChart({ period }: { period: UsagePeriod }) {
   const theme = useTheme();
   const colors = theme.colors;
 
-  const [groupBy, setGroupBy] = useState<ChartGroupBy>('agent');
+  const [groupBy, setGroupBy] = useState<'agent' | 'model'>('agent');
   const [buckets, setBuckets] = useState<Record<string, number | string>[]>([]);
   const [groups, setGroups] = useState<string[]>([]);
   const [chartLoading, setChartLoading] = useState(true);
@@ -1191,8 +918,8 @@ function CostBreakdownSection({
         borderRadius: '8px',
         border: `1px solid ${colors.border.muted}`,
         background: colors.canvas.subtle,
+        p: 2.5,
         mb: 4,
-        overflow: 'hidden',
       }}
     >
       {/* Header */}
@@ -1201,18 +928,16 @@ function CostBreakdownSection({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          px: 2.5,
-          py: 1.75,
-          borderBottom: `1px solid ${colors.border.muted}`,
+          mb: 2,
         }}
       >
         <Typography sx={{ ...sectionLabelSx, color: colors.fg.subtle }}>
-          Cost Breakdown
+          Cost Trend
         </Typography>
 
         {/* By Agent / By Model toggle */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          {(['agent', 'model'] as ChartGroupBy[]).map((g) => (
+          {(['agent', 'model'] as const).map((g) => (
             <Box
               key={g}
               onClick={() => setGroupBy(g)}
@@ -1243,147 +968,112 @@ function CostBreakdownSection({
         </Box>
       </Box>
 
-      {/* Two-panel body */}
-      <Box sx={{ display: 'flex', flexWrap: 'wrap' }}>
-        {/* Left: AgentCostTree */}
-        <Box
-          sx={{
-            flex: '1 1 340px',
-            borderRight: `1px solid ${colors.border.muted}`,
-            p: 2.5,
-          }}
-        >
-          <AgentCostTree
-            items={chainData}
-            totalCost={chainTotalCost}
-            loading={chainLoading}
-            onAgentClick={onAgentSelect}
-          />
+      {/* Chart body */}
+      {chartLoading && (
+        <Box sx={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <CircularProgress size={28} />
         </Box>
-
-        {/* Right: trend chart */}
-        <Box sx={{ flex: '1 1 400px', p: 2.5 }}>
-          {chartLoading && (
-            <Box sx={{ height: 260, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <CircularProgress size={28} />
-            </Box>
-          )}
-          {!chartLoading && chartError && (
-            <Box sx={{ height: 260, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Typography sx={{ fontSize: '0.8125rem', color: colors.fg.subtle }}>
-                Failed to load chart data
-              </Typography>
-            </Box>
-          )}
-          {!chartLoading && !chartError && buckets.length === 0 && (
-            <Box sx={{ height: 260, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Typography sx={{ fontSize: '0.8125rem', color: colors.fg.subtle }}>
-                No data for this period
-              </Typography>
-            </Box>
-          )}
-          {!chartLoading && !chartError && buckets.length > 0 && (
-            <ResponsiveContainer width="100%" height={260}>
-              <AreaChart data={buckets} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-                <defs>
-                  {groups.map((g, i) => (
-                    <linearGradient key={g} id={`breakdown-grad-${i}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={seriesColor(i)} stopOpacity={0.25} />
-                      <stop offset="95%" stopColor={seriesColor(i)} stopOpacity={0.03} />
-                    </linearGradient>
-                  ))}
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke={colors.border.muted} vertical={false} />
-                <XAxis
-                  dataKey="bucket"
-                  tickFormatter={formatBucketLabel}
-                  tick={{ fontSize: 11, fill: colors.fg.subtle }}
-                  axisLine={false}
-                  tickLine={false}
-                  dy={6}
-                />
-                <YAxis
-                  tickFormatter={formatCostTick}
-                  tick={{ fontSize: 11, fill: colors.fg.subtle }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={60}
-                />
-                <RechartsTooltip
-                  contentStyle={{
-                    backgroundColor: colors.canvas.overlay,
-                    border: `1px solid ${colors.border.muted}`,
-                    borderRadius: '6px',
-                    fontSize: '0.75rem',
-                    color: colors.fg.default,
-                  }}
-                  labelStyle={{ color: colors.fg.muted, marginBottom: 4 }}
-                  labelFormatter={(label) => formatBucketLabel(String(label))}
-                  formatter={(value, name) => [`$${Number(value).toFixed(4)}`, String(name)]}
-                />
-                <Legend
-                  iconType="circle"
-                  iconSize={7}
-                  wrapperStyle={{ fontSize: '0.75rem', color: colors.fg.muted, paddingTop: 12 }}
-                />
-                {groups.map((g, i) => (
-                  <Area
-                    key={g}
-                    type="monotone"
-                    dataKey={g}
-                    name={g}
-                    stroke={seriesColor(i)}
-                    strokeWidth={1.5}
-                    fill={`url(#breakdown-grad-${i})`}
-                    stackId="1"
-                    dot={false}
-                    activeDot={{ r: 3, strokeWidth: 0 }}
-                  />
-                ))}
-              </AreaChart>
-            </ResponsiveContainer>
-          )}
+      )}
+      {!chartLoading && chartError && (
+        <Box sx={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Typography sx={{ fontSize: '0.8125rem', color: colors.fg.subtle }}>
+            Failed to load chart data
+          </Typography>
         </Box>
-      </Box>
+      )}
+      {!chartLoading && !chartError && buckets.length === 0 && (
+        <Box sx={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Typography sx={{ fontSize: '0.8125rem', color: colors.fg.subtle }}>
+            No data for this period
+          </Typography>
+        </Box>
+      )}
+      {!chartLoading && !chartError && buckets.length > 0 && (
+        <ResponsiveContainer width="100%" height={240}>
+          <AreaChart data={buckets} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+            <defs>
+              {groups.map((g, i) => (
+                <linearGradient key={g} id={`trend-grad-${i}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={seriesColor(i)} stopOpacity={0.25} />
+                  <stop offset="95%" stopColor={seriesColor(i)} stopOpacity={0.03} />
+                </linearGradient>
+              ))}
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke={colors.border.muted} vertical={false} />
+            <XAxis
+              dataKey="bucket"
+              tickFormatter={formatBucketLabel}
+              tick={{ fontSize: 11, fill: colors.fg.subtle }}
+              axisLine={false}
+              tickLine={false}
+              dy={6}
+            />
+            <YAxis
+              tickFormatter={formatCostTick}
+              tick={{ fontSize: 11, fill: colors.fg.subtle }}
+              axisLine={false}
+              tickLine={false}
+              width={60}
+            />
+            <RechartsTooltip
+              contentStyle={{
+                backgroundColor: colors.canvas.overlay,
+                border: `1px solid ${colors.border.muted}`,
+                borderRadius: '6px',
+                fontSize: '0.75rem',
+                color: colors.fg.default,
+              }}
+              labelStyle={{ color: colors.fg.muted, marginBottom: 4 }}
+              labelFormatter={(label) => formatBucketLabel(String(label))}
+              formatter={(value, name) => [`$${Number(value).toFixed(4)}`, String(name)]}
+            />
+            <Legend
+              iconType="circle"
+              iconSize={7}
+              wrapperStyle={{ fontSize: '0.75rem', color: colors.fg.muted, paddingTop: 12 }}
+            />
+            {groups.map((g, i) => (
+              <Area
+                key={g}
+                type="monotone"
+                dataKey={g}
+                name={g}
+                stroke={seriesColor(i)}
+                strokeWidth={1.5}
+                fill={`url(#trend-grad-${i})`}
+                stackId="1"
+                dot={false}
+                activeDot={{ r: 3, strokeWidth: 0 }}
+              />
+            ))}
+          </AreaChart>
+        </ResponsiveContainer>
+      )}
     </Box>
   );
 }
 
-// ── ModelEfficiency — Section 3 ───────────────────────────────────────────────
+// ── AgentCostList — Simple agent cost ranking list ────────────────────────────
 
-function ModelEfficiency({
-  activeModels,
-  allPricing,
+const TOP_AGENT_COUNT = 10;
+
+function AgentCostList({
+  items,
+  totalCost,
   loading,
 }: {
-  activeModels: ActiveModel[];
-  allPricing: ModelPricing[];
+  items: CostByAgentItem[];
+  totalCost: number | null;
   loading: boolean;
 }) {
   const theme = useTheme();
   const colors = theme.colors;
+  const navigate = useNavigate();
+  const [showAll, setShowAll] = useState(false);
 
-  if (loading) {
-    return (
-      <Box
-        sx={{
-          borderRadius: '8px',
-          border: `1px solid ${colors.border.muted}`,
-          background: colors.canvas.subtle,
-          mb: 4,
-          p: 2.5,
-          display: 'flex',
-          justifyContent: 'center',
-          py: 6,
-        }}
-      >
-        <CircularProgress size={28} />
-      </Box>
-    );
-  }
-
-  // Only models that have been used
-  const usedModels = [...activeModels].sort((a, b) => (b.total_cost ?? -1) - (a.total_cost ?? -1));
+  const sorted = [...items].sort((a, b) => (b.total_cost ?? -1) - (a.total_cost ?? -1));
+  const displayed = showAll ? sorted : sorted.slice(0, TOP_AGENT_COUNT);
+  const hidden = sorted.length - TOP_AGENT_COUNT;
 
   return (
     <Box
@@ -1404,280 +1094,168 @@ function ModelEfficiency({
         }}
       >
         <Typography sx={{ ...sectionLabelSx, color: colors.fg.subtle }}>
-          Model Efficiency
+          Agents
         </Typography>
       </Box>
 
-      {usedModels.length === 0 && (
+      {/* Loading */}
+      {loading && (
+        <Box sx={{ py: 6, display: 'flex', justifyContent: 'center' }}>
+          <CircularProgress size={28} />
+        </Box>
+      )}
+
+      {/* Empty */}
+      {!loading && sorted.length === 0 && (
         <Box sx={{ py: 6, display: 'flex', justifyContent: 'center' }}>
           <Typography sx={{ fontSize: '0.8125rem', color: colors.fg.subtle }}>
-            No active models in this period
+            No agent data for this period
           </Typography>
         </Box>
       )}
 
-      {usedModels.map((active) => {
-        const pColor = providerColor(active.provider ?? 'unknown');
-
-        // Avg cost per run for this active model
-        const activeAvgPerRun =
-          active.call_count > 0 && active.input_cost_per_token !== null && active.output_cost_per_token !== null
-            ? (active.total_prompt_tokens / active.call_count) * active.input_cost_per_token +
-              (active.total_completion_tokens / active.call_count) * active.output_cost_per_token
+      {/* Rows */}
+      {!loading && displayed.map((item) => {
+        const pct =
+          totalCost && item.total_cost !== null
+            ? (item.total_cost / totalCost) * 100
             : null;
-
-        // Find alternatives: same provider, different model, has pricing
-        const activeProvider = (active.provider ?? '').toLowerCase();
-        const alternatives = allPricing
-          .filter(
-            (alt) =>
-              alt.model_name !== active.model_name &&
-              alt.provider.toLowerCase() === activeProvider &&
-              alt.input_cost_per_token !== null &&
-              alt.output_cost_per_token !== null,
-          )
-          .map((alt) => {
-            const altAvgPerRun =
-              active.call_count > 0
-                ? (active.total_prompt_tokens / active.call_count) * alt.input_cost_per_token! +
-                  (active.total_completion_tokens / active.call_count) * alt.output_cost_per_token!
-                : null;
-            const savings =
-              activeAvgPerRun !== null && altAvgPerRun !== null
-                ? ((activeAvgPerRun - altAvgPerRun) / (activeAvgPerRun || 1)) * 100
-                : null;
-            return { alt, altAvgPerRun, savings };
-          })
-          .sort((a, b) => (b.savings ?? -Infinity) - (a.savings ?? -Infinity))
-          .slice(0, 3);
+        const barFill = pct !== null ? Math.max(0, Math.min(100, pct)) : 0;
 
         return (
-          <Box key={active.model_name} sx={{ borderBottom: `1px solid ${colors.border.muted}` }}>
-            {/* Active model row */}
-            <Box
+          <Box
+            key={item.agent_id}
+            onClick={() => navigate(`/agents/${item.agent_id}/cost`)}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.5,
+              px: 2.5,
+              py: 1.5,
+              cursor: 'pointer',
+              borderBottom: `1px solid ${colors.border.muted}`,
+              transition: 'background 0.1s ease',
+              '&:hover': { backgroundColor: colors.canvas.elevated },
+              '&:last-of-type': { borderBottom: 'none' },
+            }}
+          >
+            {/* Agent name */}
+            <Typography
               sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1.5,
-                px: 2.5,
-                py: 1.5,
+                fontSize: '0.8125rem',
+                fontWeight: 600,
+                color: colors.fg.default,
+                fontFamily: monoFontFamily,
+                minWidth: 0,
+                flex: '0 0 160px',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
               }}
             >
-              {/* Green dot */}
+              {item.agent_name}
+            </Typography>
+
+            {/* Cost */}
+            <Typography
+              sx={{
+                fontSize: '0.8125rem',
+                fontWeight: 600,
+                color: colors.accent.fg,
+                fontFamily: monoFontFamily,
+                fontVariantNumeric: 'tabular-nums',
+                flex: '0 0 80px',
+                textAlign: 'right',
+              }}
+            >
+              {formatModelCost(item.total_cost)}
+            </Typography>
+
+            {/* Percentage text */}
+            <Typography
+              sx={{
+                fontSize: '0.6875rem',
+                color: colors.fg.subtle,
+                fontVariantNumeric: 'tabular-nums',
+                flex: '0 0 36px',
+                textAlign: 'right',
+              }}
+            >
+              {pct !== null ? `${pct.toFixed(1)}%` : '—'}
+            </Typography>
+
+            {/* Bar */}
+            <Box
+              sx={{
+                flex: 1,
+                height: 4,
+                borderRadius: 2,
+                backgroundColor: colors.border.muted,
+                overflow: 'hidden',
+                minWidth: 80,
+                maxWidth: 120,
+              }}
+            >
               <Box
                 sx={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  backgroundColor: colors.success.fg,
-                  flexShrink: 0,
+                  width: `${barFill}%`,
+                  height: '100%',
+                  borderRadius: 2,
+                  backgroundColor: colors.accent.emphasis,
+                  transition: 'width 0.3s ease',
                 }}
               />
-              {/* Model name */}
-              <Typography
-                sx={{
-                  fontSize: '0.8125rem',
-                  fontWeight: 600,
-                  color: colors.fg.default,
-                  fontFamily: monoFontFamily,
-                  flex: 1,
-                  minWidth: 0,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {active.model_name}
-              </Typography>
-              {/* Provider badge */}
-              <Box
-                sx={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 0.5,
-                  px: 0.75,
-                  py: 0.25,
-                  borderRadius: '4px',
-                  border: `1px solid ${pColor}40`,
-                  backgroundColor: `${pColor}12`,
-                  flexShrink: 0,
-                }}
-              >
-                <Box sx={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: pColor }} />
-                <Typography sx={{ fontSize: '0.6875rem', fontWeight: 600, color: pColor, textTransform: 'capitalize' }}>
-                  {active.provider ?? '?'}
-                </Typography>
-              </Box>
-              {/* Stats */}
-              <Box sx={{ display: 'flex', gap: 2, flexShrink: 0 }}>
-                <Box sx={{ textAlign: 'right' }}>
-                  <Typography sx={{ ...sectionLabelSx, color: colors.fg.subtle }}>
-                    Runs
-                  </Typography>
-                  <Typography sx={{ fontSize: '0.75rem', color: colors.fg.muted, fontVariantNumeric: 'tabular-nums', fontFamily: monoFontFamily }}>
-                    {formatNumber(active.call_count)}
-                  </Typography>
-                </Box>
-                <Box sx={{ textAlign: 'right' }}>
-                  <Typography sx={{ ...sectionLabelSx, color: colors.fg.subtle }}>
-                    Tokens
-                  </Typography>
-                  <Typography sx={{ fontSize: '0.75rem', color: colors.fg.muted, fontVariantNumeric: 'tabular-nums', fontFamily: monoFontFamily }}>
-                    {formatTokenCount(active.total_tokens)}
-                  </Typography>
-                </Box>
-                <Box sx={{ textAlign: 'right' }}>
-                  <Typography sx={{ ...sectionLabelSx, color: colors.fg.subtle }}>
-                    Avg / Run
-                  </Typography>
-                  <Typography sx={{ fontSize: '0.75rem', color: colors.accent.fg, fontVariantNumeric: 'tabular-nums', fontFamily: monoFontFamily, fontWeight: 600 }}>
-                    {activeAvgPerRun !== null ? `$${activeAvgPerRun.toFixed(5)}` : '—'}
-                  </Typography>
-                </Box>
-                <Box
-                  sx={{
-                    px: 0.75,
-                    py: 0.25,
-                    borderRadius: '4px',
-                    backgroundColor: colors.canvas.elevated,
-                    border: `1px solid ${colors.border.default}`,
-                    alignSelf: 'center',
-                  }}
-                >
-                  <Typography sx={{ fontSize: '0.625rem', color: colors.fg.subtle, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                    baseline
-                  </Typography>
-                </Box>
-              </Box>
             </Box>
 
-            {/* Alternatives */}
-            {alternatives.length === 0 ? (
-              <Box sx={{ px: 2.5, pb: 1.5, pl: 5 }}>
-                <Typography sx={{ fontSize: '0.75rem', color: colors.fg.subtle, fontStyle: 'italic' }}>
-                  No comparable models found
-                </Typography>
-              </Box>
-            ) : (
-              <Box
-                sx={{
-                  mx: 2.5,
-                  mb: 1.5,
-                  borderRadius: '6px',
-                  border: `1px dashed ${colors.border.default}`,
-                  overflow: 'hidden',
-                }}
-              >
-                <Box sx={{ px: 1.5, py: 0.75, backgroundColor: colors.canvas.inset }}>
-                  <Typography sx={{ ...sectionLabelSx, fontSize: '0.5625rem', color: colors.fg.subtle }}>
-                    Alternatives
-                  </Typography>
-                </Box>
-                {alternatives.map(({ alt, altAvgPerRun, savings }) => {
-                  const altColor = providerColor(alt.provider);
-                  const cheaper = savings !== null && savings > 0;
-                  const savingsColor = cheaper ? colors.success.fg : colors.danger.fg;
-                  const savingsArrow = cheaper ? '↓' : '↑';
-
-                  return (
-                    <Box
-                      key={alt.model_name}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1.5,
-                        px: 1.5,
-                        py: 1,
-                        borderTop: `1px solid ${colors.border.muted}`,
-                        '&:first-of-type': { borderTop: 'none' },
-                      }}
-                    >
-                      {/* Open circle */}
-                      <Box
-                        sx={{
-                          width: 8,
-                          height: 8,
-                          borderRadius: '50%',
-                          border: `1.5px solid ${colors.fg.subtle}`,
-                          flexShrink: 0,
-                        }}
-                      />
-                      <Typography
-                        sx={{
-                          fontSize: '0.75rem',
-                          color: colors.fg.muted,
-                          fontFamily: monoFontFamily,
-                          flex: 1,
-                          minWidth: 0,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {alt.model_name}
-                      </Typography>
-                      {/* Alt provider badge */}
-                      <Box
-                        sx={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 0.5,
-                          px: 0.75,
-                          py: 0.25,
-                          borderRadius: '4px',
-                          border: `1px solid ${altColor}30`,
-                          backgroundColor: `${altColor}0C`,
-                          flexShrink: 0,
-                        }}
-                      >
-                        <Box sx={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: altColor }} />
-                        <Typography sx={{ fontSize: '0.625rem', fontWeight: 600, color: altColor, textTransform: 'capitalize' }}>
-                          {alt.provider}
-                        </Typography>
-                      </Box>
-                      {/* Alt avg per run */}
-                      <Typography
-                        sx={{
-                          fontSize: '0.75rem',
-                          color: colors.fg.muted,
-                          fontFamily: monoFontFamily,
-                          fontVariantNumeric: 'tabular-nums',
-                          flexShrink: 0,
-                          minWidth: 80,
-                          textAlign: 'right',
-                        }}
-                      >
-                        {altAvgPerRun !== null ? `$${altAvgPerRun.toFixed(5)}` : '—'}
-                      </Typography>
-                      {/* Savings */}
-                      {savings !== null && (
-                        <Typography
-                          sx={{
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            color: savingsColor,
-                            fontVariantNumeric: 'tabular-nums',
-                            flexShrink: 0,
-                            minWidth: 60,
-                            textAlign: 'right',
-                          }}
-                        >
-                          {savingsArrow} {Math.abs(savings).toFixed(1)}%
-                        </Typography>
-                      )}
-                    </Box>
-                  );
-                })}
-              </Box>
-            )}
+            {/* Chevron */}
+            <ChevronRightIcon
+              sx={{
+                fontSize: 14,
+                color: colors.fg.subtle,
+                flexShrink: 0,
+                ml: 'auto',
+              }}
+            />
           </Box>
         );
       })}
+
+      {/* Show more / less */}
+      {!loading && !showAll && hidden > 0 && (
+        <Box sx={{ px: 2.5, py: 1.25 }}>
+          <Typography
+            onClick={() => setShowAll(true)}
+            sx={{
+              fontSize: '0.75rem',
+              color: colors.accent.fg,
+              cursor: 'pointer',
+              '&:hover': { textDecoration: 'underline' },
+            }}
+          >
+            Show {hidden} more
+          </Typography>
+        </Box>
+      )}
+      {!loading && showAll && sorted.length > TOP_AGENT_COUNT && (
+        <Box sx={{ px: 2.5, py: 1.25 }}>
+          <Typography
+            onClick={() => setShowAll(false)}
+            sx={{
+              fontSize: '0.75rem',
+              color: colors.accent.fg,
+              cursor: 'pointer',
+              '&:hover': { textDecoration: 'underline' },
+            }}
+          >
+            Show less
+          </Typography>
+        </Box>
+      )}
     </Box>
   );
 }
 
-// ── ModelCatalog — Section 4 ──────────────────────────────────────────────────
+// ── ModelCatalog — Section 3 ──────────────────────────────────────────────────
 
 function ModelCatalog({ totalModels }: { totalModels: number }) {
   const theme = useTheme();
@@ -1767,7 +1345,6 @@ function ModelCatalog({ totalModels }: { totalModels: number }) {
 export default function CostPage() {
   const theme = useTheme();
   const colors = theme.colors;
-  const navigate = useNavigate();
 
   const [period, setPeriod] = useState<UsagePeriod>('24h');
 
@@ -1780,21 +1357,11 @@ export default function CostPage() {
   const [agentLoading, setAgentLoading] = useState(true);
   const [agentError, setAgentError] = useState<string | null>(null);
 
-  // Chain-level data
-  const [chainData, setChainData] = useState<CostByChainItem[]>([]);
-  const [chainTotalCost, setChainTotalCost] = useState<number | null>(null);
-  const [chainLoading, setChainLoading] = useState(true);
-
-  // Summary (by_model)
-  const [summary, setSummary] = useState<CostSummary | null>(null);
-  const [summaryLoading, setSummaryLoading] = useState(true);
-
-  // All pricing for efficiency comparison
-  const [allPricing, setAllPricing] = useState<ModelPricing[]>([]);
-  const [pricingTotal, setPricingTotal] = useState(0);
-
   // Sparkline data from timeseries
   const [sparkData, setSparkData] = useState<{ bucket: string; cost: number }[]>([]);
+
+  // Total models count for ModelCatalog header
+  const [totalModels, setTotalModels] = useState(0);
 
   useEffect(() => {
     setAgentLoading(true);
@@ -1806,27 +1373,6 @@ export default function CostPage() {
       })
       .catch((err: Error) => setAgentError(err.message))
       .finally(() => setAgentLoading(false));
-  }, [period]);
-
-  useEffect(() => {
-    setChainLoading(true);
-    modelPricingApi
-      .costByChain(PERIOD_HOURS[period])
-      .then((res) => {
-        setChainData(res.items);
-        setChainTotalCost(res.total_cost);
-      })
-      .catch(() => {})
-      .finally(() => setChainLoading(false));
-  }, [period]);
-
-  useEffect(() => {
-    setSummaryLoading(true);
-    modelPricingApi
-      .costSummary(PERIOD_HOURS[period])
-      .then(setSummary)
-      .catch(() => {})
-      .finally(() => setSummaryLoading(false));
   }, [period]);
 
   // Sparkline: aggregate timeseries buckets
@@ -1846,20 +1392,13 @@ export default function CostPage() {
       .catch(() => {});
   }, [period]);
 
-  // Pricing list for efficiency panel — fetch models from active providers
+  // Fetch total model count for catalog header
   useEffect(() => {
-    if (!summary?.by_model?.length) return;
-    const providers = [...new Set(summary.by_model.map((m) => m.provider).filter(Boolean))];
-    if (providers.length === 0) return;
-    // Fetch models for each active provider
-    Promise.all(
-      providers.map((p) => modelPricingApi.list({ limit: 200, provider: p ?? undefined }))
-    ).then((results) => {
-      const all = results.flatMap((r) => r.items);
-      setAllPricing(all);
-      setPricingTotal(all.length);
-    }).catch(() => {});
-  }, [summary]);
+    modelPricingApi
+      .list({ limit: 1 })
+      .then((res) => setTotalModels(res.total))
+      .catch(() => {});
+  }, []);
 
   // KPI derivations
   const billedRuns = agentData
@@ -1905,24 +1444,18 @@ export default function CostPage() {
         sparkData={sparkData}
       />
 
-      {/* Section 2: Cost Breakdown */}
-      <CostBreakdownSection
-        period={period}
-        chainData={chainData}
-        chainLoading={chainLoading}
-        chainTotalCost={chainTotalCost}
-        onAgentSelect={(agentId) => navigate(`/agents/${agentId}/stats`)}
-      />
+      {/* Section 2: Cost Trend Chart */}
+      <CostTrendChart period={period} />
 
-      {/* Section 3: Model Efficiency */}
-      <ModelEfficiency
-        activeModels={summary?.by_model ?? []}
-        allPricing={allPricing}
-        loading={summaryLoading}
+      {/* Section 3: Agent Cost List */}
+      <AgentCostList
+        items={agentData?.items ?? []}
+        totalCost={agentData?.totalCost ?? null}
+        loading={agentLoading}
       />
 
       {/* Section 4: Model Catalog */}
-      <ModelCatalog totalModels={pricingTotal} />
+      <ModelCatalog totalModels={totalModels} />
     </Box>
   );
 }

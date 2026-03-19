@@ -126,17 +126,19 @@ export const modelPricingApi = {
     return api.get<CostByAgentResponse>(`/model-pricing/cost-by-agent${query}`);
   },
 
-  costByChain: (hours?: number): Promise<CostByChainResponse> => {
+  costByChain: (hours?: number, agentId?: string): Promise<CostByChainResponse> => {
     const qs = new URLSearchParams();
     if (hours !== undefined) qs.set('hours', String(hours));
+    if (agentId !== undefined) qs.set('agent_id', agentId);
     const query = qs.toString() ? `?${qs.toString()}` : '';
     return api.get<CostByChainResponse>(`/model-pricing/cost-by-chain${query}`);
   },
 
-  costTimeseries: (hours?: number, groupBy?: 'agent' | 'model') => {
+  costTimeseries: (hours?: number, groupBy?: 'agent' | 'model', agentId?: string) => {
     const qs = new URLSearchParams();
     if (hours !== undefined) qs.set('hours', String(hours));
     if (groupBy !== undefined) qs.set('group_by', groupBy);
+    if (agentId !== undefined) qs.set('agent_id', agentId);
     const query = qs.toString() ? `?${qs.toString()}` : '';
     return api.get<CostTimeseriesResponse>(`/model-pricing/cost-timeseries${query}`);
   },

@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -82,20 +84,26 @@ async def get_cost_by_agent(
 async def get_cost_timeseries(
     hours: int | None = Query(default=None),
     group_by: str = Query(default="agent", pattern="^(agent|model)$"),
+    agent_id: uuid.UUID | None = Query(default=None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await model_pricing_service.get_cost_timeseries(db, current_user.id, hours=hours, group_by=group_by)
+    return await model_pricing_service.get_cost_timeseries(
+        db, current_user.id, hours=hours, group_by=group_by, agent_id=agent_id
+    )
 
 
 @router.get("/cost-by-chain", response_model=CostByChainResponse)
 async def get_cost_by_chain(
     hours: int | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
+    agent_id: uuid.UUID | None = Query(default=None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await model_pricing_service.get_cost_by_chain(db, current_user.id, hours=hours, limit=limit)
+    return await model_pricing_service.get_cost_by_chain(
+        db, current_user.id, hours=hours, limit=limit, agent_id=agent_id
+    )
 
 
 @router.get("/{model_name:path}", response_model=ModelPricingResponse)

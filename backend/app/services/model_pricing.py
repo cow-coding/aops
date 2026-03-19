@@ -358,6 +358,7 @@ async def get_cost_by_chain(
     user_id: uuid.UUID,
     hours: int | None = None,
     limit: int = 50,
+    agent_id: uuid.UUID | None = None,
 ) -> CostByChainResponse:
     """Return cost and token usage aggregated per (agent, chain) for the given user."""
     since: datetime | None = None
@@ -386,6 +387,8 @@ async def get_cost_by_chain(
         .where(ChainCallLog.model_name.is_not(None))
         .where(Agent.owner_id == user_id)
     )
+    if agent_id is not None:
+        stmt = stmt.where(Agent.id == agent_id)
     if since is not None:
         stmt = stmt.where(ChainCallLog.called_at >= since)
 
@@ -426,6 +429,7 @@ async def get_cost_timeseries(
     user_id: uuid.UUID,
     hours: int | None = None,
     group_by: str = "agent",
+    agent_id: uuid.UUID | None = None,
 ) -> CostTimeseriesResponse:
     """Return time-bucketed cost and token usage grouped by agent or model.
 
@@ -464,6 +468,8 @@ async def get_cost_timeseries(
         .where(ChainCallLog.model_name.is_not(None))
         .where(Agent.owner_id == user_id)
     )
+    if agent_id is not None:
+        stmt = stmt.where(Agent.id == agent_id)
     if since is not None:
         stmt = stmt.where(ChainCallLog.called_at >= since)
 

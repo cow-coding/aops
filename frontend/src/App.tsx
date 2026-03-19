@@ -11,6 +11,7 @@ import AgentFlowTab from './pages/agent/AgentFlowTab';
 import AgentSettingsTab from './pages/agent/AgentSettingsTab';
 import AgentStatsTab from './pages/agent/AgentStatsTab';
 import AgentTracesTab from './pages/agent/AgentTracesTab';
+import AgentCostTab from './pages/agent/AgentCostTab';
 import ChainCreatePage from './pages/ChainCreatePage';
 import ChainDetailPage from './pages/ChainDetailPage';
 import GroupsPage from './pages/GroupsPage';
@@ -65,6 +66,7 @@ export default function App() {
           <Route path="flow" element={<AgentFlowTab />} />
           <Route path="stats" element={<AgentStatsTab />} />
           <Route path="traces" element={<AgentTracesTab />} />
+          <Route path="cost" element={<AgentCostTab />} />
           <Route path="settings" element={<AgentSettingsTab />} />
         </Route>
 
