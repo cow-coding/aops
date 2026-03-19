@@ -34,6 +34,50 @@ export interface ActiveModel {
   output_cost_per_token: number | null;
   max_input_tokens: number | null;
   max_output_tokens: number | null;
+  total_prompt_tokens: number;
+  total_completion_tokens: number;
+  total_tokens: number;
+  total_cost: number | null;
+}
+
+export interface CostSummary {
+  total_cost: number | null;
+  total_prompt_tokens: number;
+  total_completion_tokens: number;
+  total_tokens: number;
+  by_model: ActiveModel[];
+  period_start: string | null;
+  period_end: string | null;
+}
+
+export interface CostByAgentItem {
+  agent_id: string;
+  agent_name: string;
+  run_count: number;
+  total_prompt_tokens: number;
+  total_completion_tokens: number;
+  total_tokens: number;
+  total_cost: number | null;
+  avg_cost_per_run: number | null;
+}
+
+export interface CostByAgentResponse {
+  items: CostByAgentItem[];
+  total_cost: number | null;
+  total_runs: number;
+  total_tokens: number;
+}
+
+export interface CostTimeseriesBucket {
+  bucket: string;
+  group: string;
+  cost: number;
+  tokens: number;
+}
+
+export interface CostTimeseriesResponse {
+  buckets: CostTimeseriesBucket[];
+  period_hours: number | null;
 }
 
 export const modelPricingApi = {
@@ -50,4 +94,27 @@ export const modelPricingApi = {
   sync: () => api.post<{ synced: number }>('/model-pricing/sync'),
 
   active: () => api.get<ActiveModel[]>('/model-pricing/active'),
+
+  costSummary: (hours?: number) => {
+    const qs = new URLSearchParams();
+    if (hours !== undefined) qs.set('hours', String(hours));
+    const query = qs.toString() ? `?${qs.toString()}` : '';
+    return api.get<CostSummary>(`/model-pricing/cost-summary${query}`);
+  },
+
+  costByAgent: (hours?: number, limit?: number) => {
+    const qs = new URLSearchParams();
+    if (hours !== undefined) qs.set('hours', String(hours));
+    if (limit !== undefined) qs.set('limit', String(limit));
+    const query = qs.toString() ? `?${qs.toString()}` : '';
+    return api.get<CostByAgentResponse>(`/model-pricing/cost-by-agent${query}`);
+  },
+
+  costTimeseries: (hours?: number, groupBy?: 'agent' | 'model') => {
+    const qs = new URLSearchParams();
+    if (hours !== undefined) qs.set('hours', String(hours));
+    if (groupBy !== undefined) qs.set('group_by', groupBy);
+    const query = qs.toString() ? `?${qs.toString()}` : '';
+    return api.get<CostTimeseriesResponse>(`/model-pricing/cost-timeseries${query}`);
+  },
 };

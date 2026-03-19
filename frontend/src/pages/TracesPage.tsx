@@ -279,6 +279,13 @@ function RunDetailPanel({ detail, mode, chainLatencyMap }: { detail: RunDetail; 
                   </Box>
                 </Tooltip>
               )}
+              {call.total_tokens !== null && (
+                <Typography sx={{ fontSize: '0.6875rem', color: colors.fg.subtle }}>
+                  {call.prompt_tokens !== null && call.completion_tokens !== null
+                    ? `${call.prompt_tokens.toLocaleString()} + ${call.completion_tokens.toLocaleString()} tokens`
+                    : `${call.total_tokens.toLocaleString()} tokens`}
+                </Typography>
+              )}
               <Typography sx={{ fontSize: '0.6875rem', color: colors.fg.subtle, ml: 'auto' }}>
                 {formatDate(call.called_at)}
               </Typography>

@@ -1,5 +1,6 @@
 import logging
 import uuid
+from datetime import datetime, timedelta, timezone
 
 import httpx
 from sqlalchemy import func, select
@@ -9,7 +10,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.agent import Agent
 from app.models.agent_run import AgentRun, ChainCallLog
 from app.models.model_pricing import ModelPricing
-from app.schemas.model_pricing import ActiveModelResponse
+from app.schemas.model_pricing import (
+    ActiveModelResponse,
+    CostByAgentItem,
+    CostByAgentResponse,
+    CostSummaryResponse,
+    CostTimeseriesBucket,
+    CostTimeseriesResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -152,11 +160,8 @@ async def get_model_pricing(
     return result.scalar_one_or_none()
 
 
-async def get_active_models(
-    db: AsyncSession, user_id: uuid.UUID
-) -> list[ActiveModelResponse]:
-    """Return models that appear in chain_call_logs for the given user's agents,
-    joined with pricing data and usage stats."""
+def _build_active_models_stmt(user_id: uuid.UUID, since: datetime | None = None):
+    """Build the base select statement for active model aggregation."""
     stmt = (
         select(
             ChainCallLog.model_name,
@@ -167,34 +172,283 @@ async def get_active_models(
             ModelPricing.output_cost_per_token,
             ModelPricing.max_input_tokens,
             ModelPricing.max_output_tokens,
+            func.coalesce(func.sum(ChainCallLog.prompt_tokens), 0).label("total_prompt_tokens"),
+            func.coalesce(func.sum(ChainCallLog.completion_tokens), 0).label("total_completion_tokens"),
+            func.coalesce(func.sum(ChainCallLog.total_tokens), 0).label("total_tokens"),
         )
         .join(AgentRun, ChainCallLog.run_id == AgentRun.id)
         .join(Agent, AgentRun.agent_id == Agent.id)
         .outerjoin(ModelPricing, ChainCallLog.model_name == ModelPricing.model_name)
         .where(ChainCallLog.model_name.is_not(None))
         .where(Agent.owner_id == user_id)
-        .group_by(
-            ChainCallLog.model_name,
-            ModelPricing.provider,
-            ModelPricing.input_cost_per_token,
-            ModelPricing.output_cost_per_token,
-            ModelPricing.max_input_tokens,
-            ModelPricing.max_output_tokens,
-        )
-        .order_by(func.count().desc())
     )
+    if since is not None:
+        stmt = stmt.where(ChainCallLog.called_at >= since)
+    stmt = stmt.group_by(
+        ChainCallLog.model_name,
+        ModelPricing.provider,
+        ModelPricing.input_cost_per_token,
+        ModelPricing.output_cost_per_token,
+        ModelPricing.max_input_tokens,
+        ModelPricing.max_output_tokens,
+    ).order_by(func.count().desc())
+    return stmt
+
+
+def _row_to_active_model_response(row) -> ActiveModelResponse:
+    input_cost = row.input_cost_per_token
+    output_cost = row.output_cost_per_token
+    if input_cost is not None and output_cost is not None:
+        total_cost = (
+            row.total_prompt_tokens * input_cost
+            + row.total_completion_tokens * output_cost
+        )
+    else:
+        total_cost = None
+    return ActiveModelResponse(
+        model_name=row.model_name,
+        provider=row.provider,
+        call_count=row.call_count,
+        last_used_at=row.last_used_at,
+        input_cost_per_token=input_cost,
+        output_cost_per_token=output_cost,
+        max_input_tokens=row.max_input_tokens,
+        max_output_tokens=row.max_output_tokens,
+        total_prompt_tokens=row.total_prompt_tokens,
+        total_completion_tokens=row.total_completion_tokens,
+        total_tokens=row.total_tokens,
+        total_cost=total_cost,
+    )
+
+
+async def get_active_models(
+    db: AsyncSession, user_id: uuid.UUID
+) -> list[ActiveModelResponse]:
+    """Return models that appear in chain_call_logs for the given user's agents,
+    joined with pricing data and usage stats."""
+    stmt = _build_active_models_stmt(user_id)
     result = await db.execute(stmt)
     rows = result.all()
-    return [
-        ActiveModelResponse(
-            model_name=row.model_name,
-            provider=row.provider,
-            call_count=row.call_count,
-            last_used_at=row.last_used_at,
-            input_cost_per_token=row.input_cost_per_token,
-            output_cost_per_token=row.output_cost_per_token,
-            max_input_tokens=row.max_input_tokens,
-            max_output_tokens=row.max_output_tokens,
+    return [_row_to_active_model_response(row) for row in rows]
+
+
+async def get_cost_summary(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    hours: int | None = None,
+) -> CostSummaryResponse:
+    """Return aggregated cost and token usage, optionally filtered to the last N hours."""
+    since: datetime | None = None
+    if hours is not None:
+        since = datetime.now(tz=timezone.utc) - timedelta(hours=hours)
+
+    stmt = _build_active_models_stmt(user_id, since=since)
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    by_model = [_row_to_active_model_response(row) for row in rows]
+
+    total_prompt_tokens = sum(m.total_prompt_tokens for m in by_model)
+    total_completion_tokens = sum(m.total_completion_tokens for m in by_model)
+    total_tokens = sum(m.total_tokens for m in by_model)
+
+    costs = [m.total_cost for m in by_model if m.total_cost is not None]
+    total_cost: float | None = sum(costs) if costs else None
+
+    period_start: datetime | None = since
+    period_end: datetime | None = datetime.now(tz=timezone.utc) if since is not None else None
+
+    return CostSummaryResponse(
+        total_cost=total_cost,
+        total_prompt_tokens=total_prompt_tokens,
+        total_completion_tokens=total_completion_tokens,
+        total_tokens=total_tokens,
+        by_model=by_model,
+        period_start=period_start,
+        period_end=period_end,
+    )
+
+
+async def get_cost_by_agent(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    hours: int | None = None,
+    limit: int = 20,
+) -> CostByAgentResponse:
+    """Return cost and token usage aggregated per agent for the given user."""
+    since: datetime | None = None
+    if hours is not None:
+        since = datetime.now(tz=timezone.utc) - timedelta(hours=hours)
+
+    # Compute cost per chain_call_log row, then aggregate by agent.
+    # cost_expr is None-safe: when mp columns are NULL the multiplication
+    # produces NULL, which SUM ignores — so total_cost stays NULL for
+    # agents with no pricing data.
+    cost_per_row = (
+        ChainCallLog.prompt_tokens * ModelPricing.input_cost_per_token
+        + ChainCallLog.completion_tokens * ModelPricing.output_cost_per_token
+    )
+
+    stmt = (
+        select(
+            Agent.id.label("agent_id"),
+            Agent.name.label("agent_name"),
+            func.count(AgentRun.id.distinct()).label("run_count"),
+            func.coalesce(func.sum(ChainCallLog.prompt_tokens), 0).label("total_prompt_tokens"),
+            func.coalesce(func.sum(ChainCallLog.completion_tokens), 0).label("total_completion_tokens"),
+            func.coalesce(func.sum(ChainCallLog.total_tokens), 0).label("total_tokens"),
+            func.sum(cost_per_row).label("total_cost"),
         )
-        for row in rows
-    ]
+        .join(AgentRun, ChainCallLog.run_id == AgentRun.id)
+        .join(Agent, AgentRun.agent_id == Agent.id)
+        .outerjoin(ModelPricing, ChainCallLog.model_name == ModelPricing.model_name)
+        .where(ChainCallLog.model_name.is_not(None))
+        .where(Agent.owner_id == user_id)
+    )
+    if since is not None:
+        stmt = stmt.where(ChainCallLog.called_at >= since)
+
+    stmt = (
+        stmt
+        .group_by(Agent.id, Agent.name)
+        .order_by(func.sum(cost_per_row).desc().nulls_last())
+        .limit(limit)
+    )
+
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    items: list[CostByAgentItem] = []
+    for row in rows:
+        total_cost = float(row.total_cost) if row.total_cost is not None else None
+        run_count = row.run_count or 0
+        avg_cost_per_run: float | None = None
+        if total_cost is not None and run_count > 0:
+            avg_cost_per_run = total_cost / run_count
+        items.append(
+            CostByAgentItem(
+                agent_id=row.agent_id,
+                agent_name=row.agent_name,
+                run_count=run_count,
+                total_prompt_tokens=row.total_prompt_tokens,
+                total_completion_tokens=row.total_completion_tokens,
+                total_tokens=row.total_tokens,
+                total_cost=total_cost,
+                avg_cost_per_run=avg_cost_per_run,
+            )
+        )
+
+    costs = [i.total_cost for i in items if i.total_cost is not None]
+    overall_total_cost: float | None = sum(costs) if costs else None
+    total_runs = sum(i.run_count for i in items)
+    total_tokens = sum(i.total_tokens for i in items)
+
+    return CostByAgentResponse(
+        items=items,
+        total_cost=overall_total_cost,
+        total_runs=total_runs,
+        total_tokens=total_tokens,
+    )
+
+
+async def get_cost_timeseries(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    hours: int | None = None,
+    group_by: str = "agent",
+) -> CostTimeseriesResponse:
+    """Return time-bucketed cost and token usage grouped by agent or model.
+
+    Granularity: 'hour' when hours <= 24, 'day' otherwise (or when hours is None).
+    For group_by='agent', only the top 5 agents by total cost are shown
+    individually; all remaining data is collapsed into an 'Others' bucket.
+    """
+    since: datetime | None = None
+    if hours is not None:
+        since = datetime.now(tz=timezone.utc) - timedelta(hours=hours)
+
+    trunc_unit = "hour" if (hours is not None and hours <= 24) else "day"
+
+    cost_per_row = (
+        ChainCallLog.prompt_tokens * ModelPricing.input_cost_per_token
+        + ChainCallLog.completion_tokens * ModelPricing.output_cost_per_token
+    )
+
+    bucket_col = func.date_trunc(trunc_unit, ChainCallLog.called_at)
+
+    if group_by == "model":
+        group_label = ChainCallLog.model_name
+    else:
+        group_label = Agent.name
+
+    stmt = (
+        select(
+            bucket_col.label("bucket"),
+            group_label.label("group"),
+            func.sum(cost_per_row).label("cost"),
+            func.coalesce(func.sum(ChainCallLog.total_tokens), 0).label("tokens"),
+        )
+        .join(AgentRun, ChainCallLog.run_id == AgentRun.id)
+        .join(Agent, AgentRun.agent_id == Agent.id)
+        .outerjoin(ModelPricing, ChainCallLog.model_name == ModelPricing.model_name)
+        .where(ChainCallLog.model_name.is_not(None))
+        .where(Agent.owner_id == user_id)
+    )
+    if since is not None:
+        stmt = stmt.where(ChainCallLog.called_at >= since)
+
+    from sqlalchemy import literal_column
+    stmt = (
+        stmt
+        .group_by(literal_column("1"), literal_column("2"))
+        .order_by(literal_column("1"))
+    )
+
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    if group_by == "agent":
+        # Identify top 5 agents by total cost across the whole period.
+        agent_totals: dict[str, float] = {}
+        for row in rows:
+            group = row.group or "unknown"
+            cost = float(row.cost) if row.cost is not None else 0.0
+            agent_totals[group] = agent_totals.get(group, 0.0) + cost
+
+        top5 = set(
+            sorted(agent_totals, key=lambda k: agent_totals[k], reverse=True)[:5]
+        )
+
+        # Aggregate rows: top-5 agents keep their name, the rest become "Others".
+        # Use (bucket, group) as the merge key.
+        merged: dict[tuple, dict] = {}
+        for row in rows:
+            group = row.group or "unknown"
+            effective_group = group if group in top5 else "Others"
+            bucket_key = (row.bucket, effective_group)
+            if bucket_key not in merged:
+                merged[bucket_key] = {"cost": 0.0, "tokens": 0}
+            merged[bucket_key]["cost"] += float(row.cost) if row.cost is not None else 0.0
+            merged[bucket_key]["tokens"] += int(row.tokens)
+
+        buckets = [
+            CostTimeseriesBucket(
+                bucket=bucket_dt.date().isoformat() if trunc_unit == "day" else bucket_dt.isoformat(),
+                group=group,
+                cost=vals["cost"],
+                tokens=vals["tokens"],
+            )
+            for (bucket_dt, group), vals in sorted(merged.items(), key=lambda kv: kv[0][0])
+        ]
+    else:
+        buckets = [
+            CostTimeseriesBucket(
+                bucket=row.bucket.date().isoformat() if trunc_unit == "day" else row.bucket.isoformat(),
+                group=row.group or "unknown",
+                cost=float(row.cost) if row.cost is not None else 0.0,
+                tokens=int(row.tokens),
+            )
+            for row in rows
+        ]
+
+    return CostTimeseriesResponse(buckets=buckets, period_hours=hours)
