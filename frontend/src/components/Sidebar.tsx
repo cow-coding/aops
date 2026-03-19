@@ -70,6 +70,7 @@ export default function Sidebar() {
   const isAgentsActive = location.pathname.startsWith('/agents');
   const isGroupsActive = location.pathname.startsWith('/groups');
   const isTracesActive = location.pathname.startsWith('/traces');
+  const isCostActive = location.pathname.startsWith('/cost');
 
   const handleLogout = async () => {
     await logout();
@@ -136,6 +137,13 @@ export default function Sidebar() {
           onClick={() => navigate('/groups')}
         />
 
+        <NavItem
+          icon={<AttachMoneyOutlinedIcon sx={{ fontSize: 16 }} />}
+          label="Cost"
+          active={isCostActive}
+          onClick={() => navigate('/cost')}
+        />
+
         <Typography
           sx={{
             px: 1.5,
@@ -154,11 +162,6 @@ export default function Sidebar() {
         <NavItem
           icon={<MonitorHeartOutlinedIcon sx={{ fontSize: 16 }} />}
           label="Monitoring"
-          disabled
-        />
-        <NavItem
-          icon={<AttachMoneyOutlinedIcon sx={{ fontSize: 16 }} />}
-          label="Cost"
           disabled
         />
       </Box>
