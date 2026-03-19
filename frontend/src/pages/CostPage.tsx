@@ -390,7 +390,7 @@ function ProviderTab() {
       {/* Loading */}
       {loading && (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress size={32} />
+          <CircularProgress size={28} />
         </Box>
       )}
 
@@ -398,7 +398,7 @@ function ProviderTab() {
       {!loading && !error && items.length === 0 && (
         <Box
           sx={{
-            py: 10,
+            py: 6,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -407,7 +407,7 @@ function ProviderTab() {
             borderRadius: '8px',
           }}
         >
-          <AttachMoneyOutlinedIcon sx={{ fontSize: 40, color: colors.fg.subtle }} />
+          <AttachMoneyOutlinedIcon sx={{ fontSize: 48, color: colors.fg.subtle }} />
           <Typography variant="body1" sx={{ color: colors.fg.muted }}>
             No pricing data available.
           </Typography>
@@ -708,7 +708,7 @@ function PeriodSelector({
           key={p}
           onClick={() => onSelect(p)}
           sx={{
-            px: 1.5,
+            px: 1.25,
             py: 0.5,
             borderRadius: '6px',
             border: `1px solid ${period === p ? colors.accent.emphasis : colors.border.default}`,
@@ -758,6 +758,7 @@ function KpiTile({
       sx={{
         flex: '1 1 0',
         minWidth: 0,
+        maxWidth: 220,
         px: 2,
         py: 1.75,
         borderRadius: '8px',
@@ -788,7 +789,7 @@ function KpiTile({
       ) : (
         <Typography
           sx={{
-            fontSize: '1.375rem',
+            fontSize: '1.125rem',
             fontWeight: 600,
             color: accent ? colors.accent.fg : colors.fg.default,
             fontVariantNumeric: 'tabular-nums',
@@ -893,7 +894,7 @@ function CostTrendChart({ period }: { period: UsagePeriod }) {
               sx={{
                 px: 1.25,
                 py: 0.375,
-                borderRadius: '5px',
+                borderRadius: '6px',
                 border: `1px solid ${groupBy === g ? colors.accent.emphasis : colors.border.default}`,
                 backgroundColor: groupBy === g ? colors.accent.subtle : 'transparent',
                 cursor: 'pointer',
@@ -1044,7 +1045,7 @@ function AgentBreakdownTable({
   return (
     <Box
       sx={{
-        flex: '0 0 60%',
+        flex: '3 1 400px',
         minWidth: 0,
         borderRadius: '8px',
         border: `1px solid ${colors.border.muted}`,
@@ -1060,7 +1061,7 @@ function AgentBreakdownTable({
 
       {loading && (
         <Box sx={{ py: 6, display: 'flex', justifyContent: 'center' }}>
-          <CircularProgress size={24} />
+          <CircularProgress size={28} />
         </Box>
       )}
 
@@ -1074,7 +1075,7 @@ function AgentBreakdownTable({
 
       {!loading && items.length > 0 && (
         <>
-          <TableContainer>
+          <TableContainer sx={{ border: 'none', borderRadius: 0 }}>
             <Table size="small">
               <TableHead>
                 <TableRow>
@@ -1089,7 +1090,7 @@ function AgentBreakdownTable({
                         letterSpacing: '0.06em',
                         textTransform: 'uppercase',
                         py: 1,
-                        backgroundColor: colors.canvas.inset,
+                        backgroundColor: colors.canvas.subtle,
                         borderBottom: `1px solid ${colors.border.muted}`,
                       }}
                     >
@@ -1267,7 +1268,7 @@ function ModelBreakdownTable({
   return (
     <Box
       sx={{
-        flex: '0 0 40%',
+        flex: '2 1 280px',
         minWidth: 0,
         borderRadius: '8px',
         border: `1px solid ${colors.border.muted}`,
@@ -1283,7 +1284,7 @@ function ModelBreakdownTable({
 
       {loading && (
         <Box sx={{ py: 6, display: 'flex', justifyContent: 'center' }}>
-          <CircularProgress size={24} />
+          <CircularProgress size={28} />
         </Box>
       )}
 
@@ -1297,7 +1298,7 @@ function ModelBreakdownTable({
 
       {!loading && sortedModels.length > 0 && (
         <>
-          <TableContainer>
+          <TableContainer sx={{ border: 'none', borderRadius: 0 }}>
             <Table size="small">
               <TableHead>
                 <TableRow>
@@ -1312,7 +1313,7 @@ function ModelBreakdownTable({
                         letterSpacing: '0.06em',
                         textTransform: 'uppercase',
                         py: 1,
-                        backgroundColor: colors.canvas.inset,
+                        backgroundColor: colors.canvas.subtle,
                         borderBottom: `1px solid ${colors.border.muted}`,
                       }}
                     >
@@ -1531,7 +1532,7 @@ function UsageTab() {
       <CostTrendChart period={period} />
 
       {/* Section 3: Two-column breakdown */}
-      <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+      <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', flexWrap: 'wrap' }}>
         <AgentBreakdownTable
           items={agentData?.items ?? []}
           totalCost={agentData?.totalCost ?? null}

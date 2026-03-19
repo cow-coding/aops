@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation, Outlet, Navigate } from 'react-router-dom';
-import { Box, Button, CircularProgress, Tab, Tabs, Typography } from '@mui/material';
+import { Alert, Box, Button, CircularProgress, Tab, Tabs, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined';
@@ -105,7 +105,7 @@ export default function AgentDetailLayout() {
   if (error || !agent) {
     return (
       <Box sx={{ mt: 4 }}>
-        <Typography color="error">{error ?? 'Agent not found'}</Typography>
+        <Alert severity="error" sx={{ mb: 2 }}>{error ?? 'Agent not found'}</Alert>
         <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/agents')} sx={{ mt: 2 }}>
           Back to Agents
         </Button>

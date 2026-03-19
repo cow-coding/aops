@@ -136,7 +136,7 @@ function RunModelBadge({ models }: { models: string[] }) {
         size="small"
         variant="outlined"
         sx={{
-          height: 20,
+          height: 22,
           fontSize: '0.6875rem',
           color: colors.fg.muted,
           borderColor: colors.border.muted,
@@ -160,7 +160,7 @@ function RunModelBadge({ models }: { models: string[] }) {
         size="small"
         variant="outlined"
         sx={{
-          height: 20,
+          height: 22,
           fontSize: '0.6875rem',
           color: colors.fg.muted,
           borderColor: colors.border.muted,
@@ -229,7 +229,7 @@ function RunDetailPanel({ detail, mode, chainLatencyMap }: { detail: RunDetail; 
           <Box
             key={call.id}
             sx={{
-              border: `1px solid ${isSlowCall ? 'rgba(248, 81, 73, 0.3)' : colors.border.muted}`,
+              border: `1px solid ${isSlowCall ? colors.danger.muted : colors.border.muted}`,
               borderRadius: '6px',
               background: colors.canvas.elevated,
               overflow: 'hidden',
@@ -243,6 +243,7 @@ function RunDetailPanel({ detail, mode, chainLatencyMap }: { detail: RunDetail; 
                 background: colors.canvas.subtle,
                 fontSize: '0.6875rem', fontWeight: 600,
                 color: colors.accent.fg, whiteSpace: 'nowrap',
+                height: 22, lineHeight: '20px', display: 'inline-flex', alignItems: 'center',
               }}>
                 {call.chain_name}
               </Box>
@@ -253,7 +254,7 @@ function RunDetailPanel({ detail, mode, chainLatencyMap }: { detail: RunDetail; 
                   size="small"
                   variant="outlined"
                   sx={{
-                    height: 20,
+                    height: 22,
                     fontSize: '0.6875rem',
                     color: colors.fg.muted,
                     borderColor: colors.border.muted,
@@ -271,12 +272,12 @@ function RunDetailPanel({ detail, mode, chainLatencyMap }: { detail: RunDetail; 
                 >
                   <Box sx={{
                     display: 'flex', alignItems: 'center', gap: 0.5,
-                    px: 0.75, py: 0.125, borderRadius: '4px',
-                    border: `1px solid ${isSlowCall ? 'rgba(248, 81, 73, 0.4)' : colors.border.muted}`,
-                    fontSize: '0.6875rem', color: isSlowCall ? '#F85149' : colors.fg.subtle,
+                    px: 0.75, py: 0, height: 22, borderRadius: '4px',
+                    border: `1px solid ${isSlowCall ? colors.danger.muted : colors.border.muted}`,
+                    fontSize: '0.6875rem', color: isSlowCall ? colors.danger.fg : colors.fg.subtle,
                   }}>
                     {call.latency_ms}ms
-                    {isSlowCall && <WarningAmberOutlinedIcon sx={{ fontSize: 12, color: '#F85149' }} />}
+                    {isSlowCall && <WarningAmberOutlinedIcon sx={{ fontSize: 12, color: colors.danger.fg }} />}
                   </Box>
                 </Tooltip>
               )}
@@ -286,7 +287,7 @@ function RunDetailPanel({ detail, mode, chainLatencyMap }: { detail: RunDetail; 
                   borderRadius: '4px',
                   border: `1px solid ${colors.border.muted}`,
                   overflow: 'hidden',
-                  height: 20,
+                  height: 22,
                 }}>
                   {call.prompt_tokens !== null && call.completion_tokens !== null ? (
                     <>
@@ -342,9 +343,9 @@ function RunDetailPanel({ detail, mode, chainLatencyMap }: { detail: RunDetail; 
                       <Box sx={{
                         display: 'inline-flex', alignItems: 'center', gap: 0.5,
                         px: 0.75, py: 0.25, mb: 0.75, borderRadius: '4px',
-                        backgroundColor: 'rgba(56, 139, 253, 0.12)',
-                        border: '1px solid rgba(56, 139, 253, 0.3)',
-                        color: '#58a6ff', fontSize: '0.625rem', fontWeight: 700,
+                        backgroundColor: `${colors.terminal.blue}1F`,
+                        border: `1px solid ${colors.terminal.blue}4D`,
+                        color: colors.terminal.blue, fontSize: '0.625rem', fontWeight: 700,
                         letterSpacing: '0.08em', lineHeight: 1.4, textTransform: 'uppercase',
                       }}>
                         <CallReceivedIcon sx={{ fontSize: '0.7rem' }} />
@@ -354,7 +355,7 @@ function RunDetailPanel({ detail, mode, chainLatencyMap }: { detail: RunDetail; 
                         <Box component="pre" sx={{
                           fontFamily: monoFontFamily, fontSize: '0.75rem',
                           whiteSpace: 'pre-wrap', wordBreak: 'break-word', m: 0,
-                          borderLeft: '2px solid rgba(56, 139, 253, 0.35)', pl: 1.25,
+                          borderLeft: `2px solid ${colors.terminal.blue}59`, pl: 1.25,
                         }}
                           dangerouslySetInnerHTML={{ __html: highlightJson(inputFmt.formatted, mode) }}
                         />
@@ -363,7 +364,7 @@ function RunDetailPanel({ detail, mode, chainLatencyMap }: { detail: RunDetail; 
                           fontFamily: monoFontFamily, fontSize: '0.75rem',
                           color: colors.fg.default, whiteSpace: 'pre-wrap',
                           wordBreak: 'break-word', m: 0,
-                          borderLeft: '2px solid rgba(56, 139, 253, 0.35)', pl: 1.25,
+                          borderLeft: `2px solid ${colors.terminal.blue}59`, pl: 1.25,
                         }}>
                           {call.input}
                         </Typography>
@@ -375,9 +376,9 @@ function RunDetailPanel({ detail, mode, chainLatencyMap }: { detail: RunDetail; 
                       <Box sx={{
                         display: 'inline-flex', alignItems: 'center', gap: 0.5,
                         px: 0.75, py: 0.25, mb: 0.75, borderRadius: '4px',
-                        backgroundColor: 'rgba(63, 185, 80, 0.12)',
-                        border: '1px solid rgba(63, 185, 80, 0.3)',
-                        color: '#3fb950', fontSize: '0.625rem', fontWeight: 700,
+                        backgroundColor: `${colors.terminal.green}1F`,
+                        border: `1px solid ${colors.terminal.green}4D`,
+                        color: colors.terminal.green, fontSize: '0.625rem', fontWeight: 700,
                         letterSpacing: '0.08em', lineHeight: 1.4, textTransform: 'uppercase',
                       }}>
                         <CallMadeIcon sx={{ fontSize: '0.7rem' }} />
@@ -387,7 +388,7 @@ function RunDetailPanel({ detail, mode, chainLatencyMap }: { detail: RunDetail; 
                         <Box component="pre" sx={{
                           fontFamily: monoFontFamily, fontSize: '0.75rem',
                           whiteSpace: 'pre-wrap', wordBreak: 'break-word', m: 0,
-                          borderLeft: '2px solid rgba(63, 185, 80, 0.35)', pl: 1.25,
+                          borderLeft: `2px solid ${colors.terminal.green}59`, pl: 1.25,
                         }}
                           dangerouslySetInnerHTML={{ __html: highlightJson(outputFmt.formatted, mode) }}
                         />
@@ -396,7 +397,7 @@ function RunDetailPanel({ detail, mode, chainLatencyMap }: { detail: RunDetail; 
                           fontFamily: monoFontFamily, fontSize: '0.75rem',
                           color: colors.fg.default, whiteSpace: 'pre-wrap',
                           wordBreak: 'break-word', m: 0,
-                          borderLeft: '2px solid rgba(63, 185, 80, 0.35)', pl: 1.25,
+                          borderLeft: `2px solid ${colors.terminal.green}59`, pl: 1.25,
                         }}>
                           {call.output}
                         </Typography>
@@ -453,11 +454,11 @@ function RunRow({
       onChange={onToggle}
       data-run-id={run.id}
       sx={{
-        border: `1px solid ${isSlow ? 'rgba(248, 81, 73, 0.45)' : colors.border.muted}`,
+        border: `1px solid ${isSlow ? colors.danger.muted : colors.border.muted}`,
         borderRadius: '8px !important',
         background: colors.canvas.subtle,
         '&:before': { display: 'none' },
-        '&.Mui-expanded': { borderColor: isSlow ? 'rgba(248, 81, 73, 0.7)' : colors.border.default },
+        '&.Mui-expanded': { borderColor: isSlow ? colors.danger.fg : colors.border.default },
       }}
     >
       <AccordionSummary
@@ -477,14 +478,14 @@ function RunRow({
                 fontSize: '0.8125rem', borderRadius: '4px', px: 0.25,
                 transition: 'color 0.15s',
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                '&:hover': { color: '#8B92E8' },
+                '&:hover': { color: colors.accent.fg },
                 '&:hover .agent-link-icon': { opacity: 1 },
               }}
             >
               {run.agent_name}
               <NorthEastIcon
                 className="agent-link-icon"
-                sx={{ fontSize: '0.65rem', opacity: 0, transition: 'opacity 0.15s', color: '#8B92E8', flexShrink: 0 }}
+                sx={{ fontSize: '0.65rem', opacity: 0, transition: 'opacity 0.15s', color: colors.accent.fg, flexShrink: 0 }}
               />
             </Box>
           </Box>
@@ -494,16 +495,16 @@ function RunRow({
           </Typography>
           {/* Duration col */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, width: 72, flexShrink: 0 }}>
-            <Typography sx={{ fontSize: '0.75rem', color: isSlow ? '#F85149' : colors.fg.subtle }}>
+            <Typography sx={{ fontSize: '0.75rem', color: isSlow ? colors.danger.fg : colors.fg.subtle }}>
               {formatDuration(run.duration_ms)}
             </Typography>
-            {isSlow && <WarningAmberOutlinedIcon sx={{ fontSize: 12, color: '#F85149' }} />}
+            {isSlow && <WarningAmberOutlinedIcon sx={{ fontSize: 12, color: colors.danger.fg }} />}
             {run.status === 'error' && (
               <Box sx={{
                 px: 0.75, py: 0.125, borderRadius: '4px',
-                background: 'rgba(248, 81, 73, 0.15)',
-                border: '1px solid rgba(248, 81, 73, 0.4)',
-                fontSize: '0.625rem', fontWeight: 600, color: '#F85149',
+                background: colors.danger.subtle,
+                border: `1px solid ${colors.danger.muted}`,
+                fontSize: '0.625rem', fontWeight: 600, color: colors.danger.fg,
                 lineHeight: 1.4, letterSpacing: '0.04em',
               }}>
                 error
@@ -512,7 +513,7 @@ function RunRow({
             {run.status === 'running' && (
               <Box sx={{
                 px: 0.75, py: 0.125, borderRadius: '4px',
-                background: 'rgba(110, 118, 129, 0.15)',
+                background: colors.neutral.subtle,
                 border: `1px solid ${colors.border.default}`,
                 fontSize: '0.625rem', fontWeight: 600, color: colors.fg.muted,
                 lineHeight: 1.4, letterSpacing: '0.04em',
@@ -564,10 +565,10 @@ function RunRow({
               onClick={(e) => { e.stopPropagation(); navigate(`/agents/${run.agent_id}/traces?open=${run.id}`); }}
               sx={{
                 fontSize: '0.6875rem',
-                color: '#F85149',
+                color: colors.danger.fg,
                 px: 1, py: 0.25,
                 minHeight: 'unset',
-                '&:hover': { backgroundColor: 'rgba(248,81,73,0.08)' },
+                '&:hover': { backgroundColor: colors.danger.subtle },
               }}
             >
               View Error
@@ -579,10 +580,10 @@ function RunRow({
             onClick={(e) => { e.stopPropagation(); navigate(`/agents/${run.agent_id}`); }}
             sx={{
               fontSize: '0.6875rem',
-              color: '#8B92E8',
+              color: colors.accent.fg,
               px: 1, py: 0.25,
               minHeight: 'unset',
-              '&:hover': { backgroundColor: 'rgba(139,146,232,0.08)' },
+              '&:hover': { backgroundColor: colors.accent.subtle },
             }}
           >
             View Agent
@@ -591,7 +592,7 @@ function RunRow({
         </Box>
         {detailLoading && (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-            <CircularProgress size={24} />
+            <CircularProgress size={28} />
           </Box>
         )}
         {detailError && <Alert severity="error">{detailError}</Alert>}
@@ -602,8 +603,8 @@ function RunRow({
               size="small"
               onClick={(e) => { e.stopPropagation(); onOpenStackTrace(); }}
               sx={{
-                fontSize: '0.6875rem', color: '#F85149', px: 1, py: 0.25, minHeight: 'unset',
-                '&:hover': { backgroundColor: 'rgba(248,81,73,0.08)' },
+                fontSize: '0.6875rem', color: colors.danger.fg, px: 1, py: 0.25, minHeight: 'unset',
+                '&:hover': { backgroundColor: colors.danger.subtle },
               }}
             >
               View Stack Trace
@@ -856,10 +857,10 @@ export default function TracesPage({ agentId: fixedAgentId, showStackTrace = fal
               size="small"
               sx={{
                 fontSize: '0.75rem',
-                background: 'rgba(94, 106, 210, 0.15)',
-                border: '1px solid rgba(94, 106, 210, 0.4)',
-                color: '#8B92E8',
-                '& .MuiChip-deleteIcon': { color: '#8B92E8', '&:hover': { color: colors.fg.default } },
+                background: colors.accent.subtle,
+                border: `1px solid ${colors.accent.muted}`,
+                color: colors.accent.fg,
+                '& .MuiChip-deleteIcon': { color: colors.accent.fg, '&:hover': { color: colors.fg.default } },
               }}
             />
           )}
@@ -874,10 +875,10 @@ export default function TracesPage({ agentId: fixedAgentId, showStackTrace = fal
               size="small"
               sx={{
                 fontSize: '0.75rem',
-                background: 'rgba(248, 81, 73, 0.15)',
-                border: '1px solid rgba(248, 81, 73, 0.4)',
-                color: '#F85149',
-                '& .MuiChip-deleteIcon': { color: '#F85149', '&:hover': { color: colors.fg.default } },
+                background: colors.danger.subtle,
+                border: `1px solid ${colors.danger.muted}`,
+                color: colors.danger.fg,
+                '& .MuiChip-deleteIcon': { color: colors.danger.fg, '&:hover': { color: colors.fg.default } },
               }}
             />
           )}
@@ -911,14 +912,14 @@ export default function TracesPage({ agentId: fixedAgentId, showStackTrace = fal
                   px: 0.75,
                   py: 0.25,
                   borderRadius: '4px',
-                  background: showSlowOnly ? 'rgba(248, 81, 73, 0.2)' : 'transparent',
-                  border: `1px solid ${showSlowOnly ? 'rgba(248, 81, 73, 0.5)' : 'transparent'}`,
+                  background: showSlowOnly ? colors.danger.muted : 'transparent',
+                  border: `1px solid ${showSlowOnly ? colors.danger.fg : 'transparent'}`,
                   transition: 'all 0.15s',
-                  '&:hover': { background: 'rgba(248, 81, 73, 0.15)' },
+                  '&:hover': { background: colors.danger.subtle },
                 }}
               >
-                <WarningAmberOutlinedIcon sx={{ fontSize: 12, color: '#F85149' }} />
-                <Typography sx={{ fontSize: '0.75rem', color: '#F85149' }}>
+                <WarningAmberOutlinedIcon sx={{ fontSize: 12, color: colors.danger.fg }} />
+                <Typography sx={{ fontSize: '0.75rem', color: colors.danger.fg }}>
                   {slowCount} slow
                 </Typography>
               </Box>
@@ -945,14 +946,14 @@ export default function TracesPage({ agentId: fixedAgentId, showStackTrace = fal
                   px: 0.75,
                   py: 0.25,
                   borderRadius: '4px',
-                  background: statusFilter === 'error' ? 'rgba(248, 81, 73, 0.2)' : 'transparent',
-                  border: `1px solid ${statusFilter === 'error' ? 'rgba(248, 81, 73, 0.5)' : 'transparent'}`,
+                  background: statusFilter === 'error' ? colors.danger.muted : 'transparent',
+                  border: `1px solid ${statusFilter === 'error' ? colors.danger.fg : 'transparent'}`,
                   transition: 'all 0.15s',
-                  '&:hover': { background: 'rgba(248, 81, 73, 0.15)' },
+                  '&:hover': { background: colors.danger.subtle },
                 }}
               >
-                <WarningAmberOutlinedIcon sx={{ fontSize: 12, color: '#F85149' }} />
-                <Typography sx={{ fontSize: '0.75rem', color: '#F85149' }}>
+                <WarningAmberOutlinedIcon sx={{ fontSize: 12, color: colors.danger.fg }} />
+                <Typography sx={{ fontSize: '0.75rem', color: colors.danger.fg }}>
                   {errorCount} Error
                 </Typography>
               </Box>
@@ -999,13 +1000,13 @@ export default function TracesPage({ agentId: fixedAgentId, showStackTrace = fal
       {/* Runs list */}
       {loading && (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress size={32} />
+          <CircularProgress size={28} />
         </Box>
       )}
       {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
       {!loading && !error && runs.length === 0 && (
-        <Box sx={{ py: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <TimelineOutlinedIcon sx={{ fontSize: 40, color: colors.fg.subtle }} />
+        <Box sx={{ py: fixedAgentId ? 6 : 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+          <TimelineOutlinedIcon sx={{ fontSize: fixedAgentId ? 48 : 64, color: colors.fg.subtle }} />
           <Typography variant="body1" sx={{ color: colors.fg.muted }}>No runs in this time range.</Typography>
         </Box>
       )}

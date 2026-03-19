@@ -21,6 +21,10 @@ import TimeRangeSelector, { granularityFromParams } from '../../components/TimeR
 import type { TimeseriesParams, Granularity } from '../../components/TimeRangeSelector';
 import { formatBucketLabel } from '../../utils/date';
 
+// ── Chart color constants ─────────────────────────────────────────────────────
+const CHART_AMBER = '#F59E0B';
+const CHART_TEAL = '#2DD4BF';
+
 function formatXAxisTick(bucket: string, granularity: Granularity): string {
   const d = new Date(bucket);
   if (granularity === '5m' || granularity === '1h') return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -43,7 +47,7 @@ function LatencyTooltip({ active, payload, label }: { active?: boolean; payload?
       {avg != null ? (
         <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, mb: 0.5 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Box sx={{ width: 8, height: 2, background: '#2DD4BF', borderRadius: 1 }} />
+            <Box sx={{ width: 8, height: 2, background: CHART_TEAL, borderRadius: 1 }} />
             <Typography component="span" sx={{ fontSize: 12, color: colors.fg.muted }}>Avg</Typography>
           </Box>
           <Typography component="span" sx={{ fontSize: 12, color: colors.fg.default, fontWeight: 600 }}>{(avg / 1000).toFixed(2)}s</Typography>
@@ -52,7 +56,7 @@ function LatencyTooltip({ active, payload, label }: { active?: boolean; payload?
       {p95 != null ? (
         <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, mb: spread != null ? 0.5 : 0 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Box sx={{ width: 8, height: 2, background: '#F59E0B', borderRadius: 1 }} />
+            <Box sx={{ width: 8, height: 2, background: CHART_AMBER, borderRadius: 1 }} />
             <Typography component="span" sx={{ fontSize: 12, color: colors.fg.muted }}>p95</Typography>
           </Box>
           <Typography component="span" sx={{ fontSize: 12, color: colors.fg.default, fontWeight: 600 }}>{(p95 / 1000).toFixed(2)}s</Typography>
@@ -62,7 +66,7 @@ function LatencyTooltip({ active, payload, label }: { active?: boolean; payload?
         <Box sx={{ borderTop: `1px solid ${colors.border.muted}`, pt: 0.5, mt: 0.5 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
             <Typography component="span" sx={{ fontSize: 12, color: colors.fg.muted }}>Spread</Typography>
-            <Typography component="span" sx={{ fontSize: 12, color: spread > 0.1 ? '#F85149' : colors.fg.muted }}>{(spread / 1000).toFixed(2)}s</Typography>
+            <Typography component="span" sx={{ fontSize: 12, color: spread > 0.1 ? colors.danger.fg : colors.fg.muted }}>{(spread / 1000).toFixed(2)}s</Typography>
           </Box>
         </Box>
       )}
@@ -75,14 +79,12 @@ function LatencyTooltip({ active, payload, label }: { active?: boolean; payload?
 
 function TrendBadge({ pct, invert }: { pct: number | null; invert?: boolean }) {
   const theme = useTheme();
+  const colors = theme.colors;
   if (pct === null) return null;
   const isPositive = pct > 0;
   const isGood = invert ? !isPositive : isPositive;
-  const isDark = theme.palette.mode === 'dark';
-  const color = isGood ? '#3FB950' : '#F85149';
-  const bg = isGood
-    ? isDark ? '#1F3A2E' : 'rgba(63, 185, 80, 0.15)'
-    : isDark ? '#3A1F1F' : 'rgba(248, 81, 73, 0.15)';
+  const color = isGood ? colors.success.fg : colors.danger.fg;
+  const bg = isGood ? colors.success.subtle : colors.danger.subtle;
   const arrow = isPositive ? '↑' : '↓';
   return (
     <Box
@@ -146,7 +148,7 @@ export default function AgentStatsTab() {
 
       {statsLoading && (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-          <CircularProgress size={24} />
+          <CircularProgress size={28} />
         </Box>
       )}
 
@@ -204,9 +206,9 @@ export default function AgentStatsTab() {
                   cursor: clickTo ? 'pointer' : 'default',
                   transition: 'border-color 0.15s, background-color 0.15s',
                   '&:hover': clickTo ? {
-                    borderColor: 'rgba(248, 81, 73, 0.45)',
-                    backgroundColor: 'rgba(248, 81, 73, 0.05)',
-                    '& .card-link-icon': { color: '#F85149' },
+                    borderColor: colors.danger.muted,
+                    backgroundColor: colors.danger.subtle,
+                    '& .card-link-icon': { color: colors.danger.fg },
                   } : {},
                 }}
               >
@@ -216,7 +218,7 @@ export default function AgentStatsTab() {
                   </Typography>
                   {tooltip && (
                     <Tooltip title={tooltip} arrow>
-                      <InfoOutlinedIcon sx={{ fontSize: 13, color: '#6E7681', ml: 0.5, cursor: 'help', verticalAlign: 'middle' }} />
+                      <InfoOutlinedIcon sx={{ fontSize: 13, color: colors.fg.subtle, ml: 0.5, cursor: 'help', verticalAlign: 'middle' }} />
                     </Tooltip>
                   )}
                   {clickTo && (
@@ -224,7 +226,7 @@ export default function AgentStatsTab() {
                   )}
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5 }}>
-                  <Typography sx={{ fontSize: '1.125rem', fontWeight: 600, color: clickTo ? '#F85149' : colors.fg.default }}>
+                  <Typography sx={{ fontSize: '1.125rem', fontWeight: 600, color: clickTo ? colors.danger.fg : colors.fg.default }}>
                     {value}
                   </Typography>
                   <TrendBadge pct={trendPct} invert={invert} />
@@ -245,7 +247,7 @@ export default function AgentStatsTab() {
                   background: colors.canvas.subtle,
                 }}
               >
-                <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: colors.fg.muted, mb: 1.5 }}>
+                <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, color: colors.fg.muted, mb: 1.5 }}>
                   Run Count
                 </Typography>
                 <ResponsiveContainer width="100%" height={180}>
@@ -268,11 +270,11 @@ export default function AgentStatsTab() {
                     <RechartsTooltip
                       contentStyle={{ background: colors.canvas.overlay, border: `1px solid ${colors.border.default}`, borderRadius: 6, fontSize: 12 }}
                       labelStyle={{ color: colors.fg.muted }}
-                      itemStyle={{ color: '#5E6AD2' }}
+                      itemStyle={{ color: colors.accent.emphasis }}
                       labelFormatter={(v) => formatBucketLabel(new Date(v as string))}
                       formatter={(v) => [v, 'Runs']}
                     />
-                    <Bar dataKey="run_count" fill="#5E6AD2" radius={[3, 3, 0, 0]} maxBarSize={32} />
+                    <Bar dataKey="run_count" fill={colors.accent.emphasis} radius={[3, 3, 0, 0]} maxBarSize={32} />
                   </BarChart>
                 </ResponsiveContainer>
               </Box>
@@ -286,7 +288,7 @@ export default function AgentStatsTab() {
                   background: colors.canvas.subtle,
                 }}
               >
-                <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: colors.fg.muted, mb: 1.5 }}>
+                <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, color: colors.fg.muted, mb: 1.5 }}>
                   Latency (ms)
                 </Typography>
                 {(() => {
@@ -349,14 +351,14 @@ export default function AgentStatsTab() {
                             key={i}
                             x1={range.x1}
                             x2={range.x2}
-                            fill="rgba(110, 118, 129, 0.15)"
+                            fill={`${colors.fg.subtle}26`}
                             strokeOpacity={0}
                           />
                         ))}
                         <Area
                           dataKey="band"
                           stroke="none"
-                          fill="#F59E0B"
+                          fill={CHART_AMBER}
                           fillOpacity={0.08}
                           connectNulls={false}
                           legendType="none"
@@ -366,7 +368,7 @@ export default function AgentStatsTab() {
                         <Line
                           type="monotone"
                           dataKey="avg_latency_ms"
-                          stroke="#2DD4BF"
+                          stroke={CHART_TEAL}
                           strokeWidth={1.5}
                           dot={dotStyle}
                           activeDot={{ r: 4, strokeWidth: 0 }}
@@ -375,7 +377,7 @@ export default function AgentStatsTab() {
                         <Line
                           type="monotone"
                           dataKey="p95_latency_ms"
-                          stroke="#F59E0B"
+                          stroke={CHART_AMBER}
                           strokeWidth={1.5}
                           dot={dotStyle}
                           activeDot={{ r: 4, strokeWidth: 0 }}
@@ -401,8 +403,8 @@ export default function AgentStatsTab() {
                     How to read this chart
                   </Typography>
                   <Typography sx={{ fontSize: 12, color: colors.fg.subtle, lineHeight: 1.6 }}>
-                    The <span style={{ color: '#2DD4BF' }}>Avg</span> line shows the typical response time experienced by most users.
-                    The <span style={{ color: '#F59E0B' }}>p95</span> line shows the latency threshold that 95% of requests fall under —
+                    The <span style={{ color: CHART_TEAL }}>Avg</span> line shows the typical response time experienced by most users.
+                    The <span style={{ color: CHART_AMBER }}>p95</span> line shows the latency threshold that 95% of requests fall under —
                     meaning 1 in 20 requests takes longer than this value.
                   </Typography>
                   <Typography sx={{ fontSize: 12, color: colors.fg.subtle, lineHeight: 1.6, mt: 0.75 }}>

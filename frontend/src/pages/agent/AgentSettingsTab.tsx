@@ -153,7 +153,7 @@ export default function AgentSettingsTab() {
             }}
           >
             {deleting ? (
-              <CircularProgress size={16} sx={{ color: 'white' }} />
+              <CircularProgress size={16} sx={{ color: 'inherit' }} />
             ) : (
               'Delete agent'
             )}

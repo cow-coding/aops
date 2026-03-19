@@ -109,6 +109,10 @@ function highlightJson(formatted: string, mode: 'dark' | 'light' = 'dark'): stri
 }
 
 
+// ── Chart color constants ─────────────────────────────────────────────────────
+const CHART_AMBER = '#F59E0B';
+const CHART_TEAL = '#2DD4BF';
+
 function MarkdownRenderer({ content }: { content: string }) {
   const theme = useTheme();
   const colors = theme.colors;
@@ -508,44 +512,46 @@ function formatXAxisTick(ts: string, granularity: import('../components/TimeRang
 
 
 function LatencyTooltip({ active, payload, label }: { active?: boolean; payload?: { dataKey: string; value: number | null }[]; label?: string }) {
+  const theme = useTheme();
+  const colors = theme.colors;
   if (!active || !payload?.length) return null;
   const avg = payload.find((p) => p.dataKey === 'avg_latency_ms')?.value ?? null;
   const p95 = payload.find((p) => p.dataKey === 'p95_latency_ms')?.value ?? null;
   const spread = avg != null && p95 != null ? p95 - avg : null;
 
   return (
-    <Box sx={{ background: '#161B22', border: '1px solid #30363D', borderRadius: '6px', p: '8px 12px', fontSize: 12, minWidth: 140 }}>
-      <Typography sx={{ fontSize: 11, color: '#8B949E', mb: 0.75 }}>
+    <Box sx={{ background: colors.canvas.overlay, border: `1px solid ${colors.border.default}`, borderRadius: '6px', p: '8px 12px', fontSize: 12, minWidth: 140 }}>
+      <Typography sx={{ fontSize: 11, color: colors.fg.subtle, mb: 0.75 }}>
         {label ? formatBucketLabel(new Date(label)) : ''}
       </Typography>
       {avg != null ? (
         <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, mb: 0.5 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Box sx={{ width: 8, height: 2, background: '#2DD4BF', borderRadius: 1 }} />
-            <span style={{ color: '#8B949E' }}>Avg</span>
+            <Box sx={{ width: 8, height: 2, background: CHART_TEAL, borderRadius: 1 }} />
+            <Typography component="span" sx={{ fontSize: 12, color: colors.fg.subtle }}>Avg</Typography>
           </Box>
-          <span style={{ color: '#E6EDF3', fontWeight: 600 }}>{Math.round(avg)}ms</span>
+          <Typography component="span" sx={{ fontSize: 12, color: colors.fg.default, fontWeight: 600 }}>{Math.round(avg)}ms</Typography>
         </Box>
       ) : null}
       {p95 != null ? (
         <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, mb: spread != null ? 0.5 : 0 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Box sx={{ width: 8, height: 2, background: '#F59E0B', borderRadius: 1 }} />
-            <span style={{ color: '#8B949E' }}>p95</span>
+            <Box sx={{ width: 8, height: 2, background: CHART_AMBER, borderRadius: 1 }} />
+            <Typography component="span" sx={{ fontSize: 12, color: colors.fg.subtle }}>p95</Typography>
           </Box>
-          <span style={{ color: '#E6EDF3', fontWeight: 600 }}>{Math.round(p95)}ms</span>
+          <Typography component="span" sx={{ fontSize: 12, color: colors.fg.default, fontWeight: 600 }}>{Math.round(p95)}ms</Typography>
         </Box>
       ) : null}
       {spread != null && (
-        <Box sx={{ borderTop: '1px solid #21262D', pt: 0.5, mt: 0.5 }}>
+        <Box sx={{ borderTop: `1px solid ${colors.border.muted}`, pt: 0.5, mt: 0.5 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
-            <span style={{ color: '#8B949E' }}>Spread</span>
-            <span style={{ color: spread > 100 ? '#F85149' : '#8B949E' }}>{Math.round(spread)}ms</span>
+            <Typography component="span" sx={{ fontSize: 12, color: colors.fg.subtle }}>Spread</Typography>
+            <Typography component="span" sx={{ fontSize: 12, color: spread > 100 ? colors.danger.fg : colors.fg.subtle }}>{Math.round(spread)}ms</Typography>
           </Box>
         </Box>
       )}
       {avg == null && (
-        <Typography sx={{ fontSize: 11, color: '#6E7681', fontStyle: 'italic' }}>No data</Typography>
+        <Typography sx={{ fontSize: 11, color: colors.fg.subtle, fontStyle: 'italic' }}>No data</Typography>
       )}
     </Box>
   );
@@ -553,14 +559,12 @@ function LatencyTooltip({ active, payload, label }: { active?: boolean; payload?
 
 function TrendBadge({ pct, invert }: { pct: number | null; invert?: boolean }) {
   const theme = useTheme();
+  const colors = theme.colors;
   if (pct === null) return null;
   const isPositive = pct > 0;
   const isGood = invert ? !isPositive : isPositive;
-  const isDark = theme.palette.mode === 'dark';
-  const color = isGood ? '#3FB950' : '#F85149';
-  const bg = isGood
-    ? isDark ? '#1F3A2E' : 'rgba(63, 185, 80, 0.15)'
-    : isDark ? '#3A1F1F' : 'rgba(248, 81, 73, 0.15)';
+  const color = isGood ? colors.success.fg : colors.danger.fg;
+  const bg = isGood ? colors.success.subtle : colors.danger.subtle;
   const arrow = isPositive ? '↑' : '↓';
   return (
     <Box
@@ -1232,7 +1236,7 @@ export default function ChainDetailPage() {
                       </Typography>
                       {tooltip && (
                         <Tooltip title={tooltip} arrow>
-                          <InfoOutlinedIcon sx={{ fontSize: 13, color: '#6E7681', ml: 0.5, cursor: 'help', verticalAlign: 'middle' }} />
+                          <InfoOutlinedIcon sx={{ fontSize: 13, color: colors.fg.subtle, ml: 0.5, cursor: 'help', verticalAlign: 'middle' }} />
                         </Tooltip>
                       )}
                     </Box>
@@ -1258,7 +1262,7 @@ export default function ChainDetailPage() {
                       background: colors.canvas.subtle,
                     }}
                   >
-                    <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: colors.fg.muted, mb: 1.5 }}>
+                    <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, color: colors.fg.muted, mb: 1.5 }}>
                       Call Count
                     </Typography>
                     <ResponsiveContainer width="100%" height={180}>
@@ -1279,13 +1283,13 @@ export default function ChainDetailPage() {
                           width={36}
                         />
                         <RechartsTooltip
-                          contentStyle={{ background: '#161B22', border: '1px solid #30363D', borderRadius: 6, fontSize: 12 }}
-                          labelStyle={{ color: '#8B949E' }}
-                          itemStyle={{ color: '#5E6AD2' }}
+                          contentStyle={{ background: colors.canvas.overlay, border: `1px solid ${colors.border.default}`, borderRadius: 6, fontSize: 12 }}
+                          labelStyle={{ color: colors.fg.subtle }}
+                          itemStyle={{ color: colors.accent.emphasis }}
                           labelFormatter={(v) => formatBucketLabel(new Date(v as string))}
                           formatter={(v) => [v, 'Calls']}
                         />
-                        <Bar dataKey="call_count" fill="#5E6AD2" radius={[3, 3, 0, 0]} maxBarSize={32} />
+                        <Bar dataKey="call_count" fill={colors.accent.emphasis} radius={[3, 3, 0, 0]} maxBarSize={32} />
                       </BarChart>
                     </ResponsiveContainer>
                   </Box>
@@ -1299,7 +1303,7 @@ export default function ChainDetailPage() {
                       background: colors.canvas.subtle,
                     }}
                   >
-                    <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: colors.fg.muted, mb: 1.5 }}>
+                    <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, color: colors.fg.muted, mb: 1.5 }}>
                       Latency (ms)
                     </Typography>
                     {(() => {
@@ -1354,7 +1358,7 @@ export default function ChainDetailPage() {
                             />
                             <Legend
                               iconType="plainline"
-                              wrapperStyle={{ fontSize: 11, color: '#8B949E' }}
+                              wrapperStyle={{ fontSize: 11, color: colors.fg.muted }}
                               formatter={(value) => value === 'avg_latency_ms' ? 'Avg' : 'p95'}
                             />
                             {nullRanges.map((range, i) => (
@@ -1362,14 +1366,14 @@ export default function ChainDetailPage() {
                                 key={i}
                                 x1={range.x1}
                                 x2={range.x2}
-                                fill="rgba(110, 118, 129, 0.15)"
+                                fill={`${colors.fg.subtle}26`}
                                 strokeOpacity={0}
                               />
                             ))}
                             <Area
                               dataKey="band"
                               stroke="none"
-                              fill="#F59E0B"
+                              fill={CHART_AMBER}
                               fillOpacity={0.08}
                               connectNulls={false}
                               legendType="none"
@@ -1379,7 +1383,7 @@ export default function ChainDetailPage() {
                             <Line
                               type="monotone"
                               dataKey="avg_latency_ms"
-                              stroke="#2DD4BF"
+                              stroke={CHART_TEAL}
                               strokeWidth={1.5}
                               dot={dotStyle}
                               activeDot={{ r: 4, strokeWidth: 0 }}
@@ -1388,7 +1392,7 @@ export default function ChainDetailPage() {
                             <Line
                               type="monotone"
                               dataKey="p95_latency_ms"
-                              stroke="#F59E0B"
+                              stroke={CHART_AMBER}
                               strokeWidth={1.5}
                               dot={dotStyle}
                               activeDot={{ r: 4, strokeWidth: 0 }}
@@ -1414,8 +1418,8 @@ export default function ChainDetailPage() {
                         How to read this chart
                       </Typography>
                       <Typography sx={{ fontSize: 12, color: colors.fg.subtle, lineHeight: 1.6 }}>
-                        The <span style={{ color: '#2DD4BF' }}>Avg</span> line shows the typical response time experienced by most users.
-                        The <span style={{ color: '#F59E0B' }}>p95</span> line shows the latency threshold that 95% of requests fall under —
+                        The <span style={{ color: CHART_TEAL }}>Avg</span> line shows the typical response time experienced by most users.
+                        The <span style={{ color: CHART_AMBER }}>p95</span> line shows the latency threshold that 95% of requests fall under —
                         meaning 1 in 20 requests takes longer than this value.
                       </Typography>
                       <Typography sx={{ fontSize: 12, color: colors.fg.subtle, lineHeight: 1.6, mt: 0.75 }}>
@@ -1467,9 +1471,9 @@ export default function ChainDetailPage() {
                 mb: 1.5,
                 px: 2,
                 py: 1,
-                borderRadius: '6px',
+                borderRadius: '8px',
                 background: colors.accent.subtle,
-                border: `1px solid ${colors.accent.emphasis}`,
+                border: `1px solid ${colors.accent.muted}`,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -1508,18 +1512,18 @@ export default function ChainDetailPage() {
                   elevation={0}
                   sx={{
                     border: isError
-                      ? '1px solid rgba(248, 81, 73, 0.45)'
-                      : isNew ? '1px solid rgba(56,139,253,0.5)' : `1px solid ${colors.border.muted}`,
+                      ? `1px solid ${colors.danger.muted}`
+                      : isNew ? `1px solid ${colors.terminal.blue}80` : `1px solid ${colors.border.muted}`,
                     borderRadius: '8px !important',
                     background: isError
-                      ? 'rgba(248, 81, 73, 0.05)'
-                      : isNew ? 'rgba(56,139,253,0.07)' : colors.canvas.subtle,
+                      ? colors.danger.subtle
+                      : isNew ? `${colors.terminal.blue}12` : colors.canvas.subtle,
                     transition: 'border-color 1s ease, background-color 1s ease',
                     '&:before': { display: 'none' },
                     '&.Mui-expanded': {
                       borderColor: isError
-                        ? 'rgba(248, 81, 73, 0.7)'
-                        : isNew ? 'rgba(56,139,253,0.5)' : colors.border.default,
+                        ? colors.danger.fg
+                        : isNew ? `${colors.terminal.blue}80` : colors.border.default,
                     },
                   }}
                 >
@@ -1534,9 +1538,9 @@ export default function ChainDetailPage() {
                       {isError && (
                         <Box sx={{
                           px: 0.75, py: 0.125, borderRadius: '4px',
-                          background: 'rgba(248, 81, 73, 0.15)',
-                          border: '1px solid rgba(248, 81, 73, 0.4)',
-                          fontSize: '0.625rem', fontWeight: 600, color: '#F85149',
+                          background: colors.danger.subtle,
+                          border: `1px solid ${colors.danger.muted}`,
+                          fontSize: '0.625rem', fontWeight: 600, color: colors.danger.fg,
                           lineHeight: 1.4, letterSpacing: '0.04em', flexShrink: 0,
                         }}>
                           error
@@ -1554,16 +1558,16 @@ export default function ChainDetailPage() {
                         <Box sx={{
                           mb: 1.5, px: 1.25, py: 1,
                           borderRadius: '6px',
-                          background: 'rgba(248, 81, 73, 0.08)',
-                          border: '1px solid rgba(248, 81, 73, 0.3)',
-                          borderLeft: '3px solid #F85149',
+                          background: `${colors.danger.fg}14`,
+                          border: `1px solid ${colors.danger.muted}`,
+                          borderLeft: `3px solid ${colors.danger.fg}`,
                         }}>
-                          <Typography sx={{ fontSize: '0.6875rem', fontWeight: 600, color: '#F85149', mb: 0.5, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                          <Typography sx={{ fontSize: '0.6875rem', fontWeight: 600, color: colors.danger.fg, mb: 0.5, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
                             Error
                           </Typography>
                           <Typography component="pre" sx={{
                             fontFamily: monoFontFamily, fontSize: '0.75rem',
-                            color: '#F85149', whiteSpace: 'pre-wrap', wordBreak: 'break-word', m: 0, opacity: 0.9,
+                            color: colors.danger.fg, whiteSpace: 'pre-wrap', wordBreak: 'break-word', m: 0, opacity: 0.9,
                           }}>
                             {log.error_message}
                           </Typography>
@@ -1574,9 +1578,9 @@ export default function ChainDetailPage() {
                           <Box sx={{
                             display: 'inline-flex', alignItems: 'center', gap: 0.5,
                             px: 0.75, py: 0.25, mb: 0.75, borderRadius: '4px',
-                            backgroundColor: 'rgba(56, 139, 253, 0.12)',
-                            border: '1px solid rgba(56, 139, 253, 0.3)',
-                            color: '#58a6ff', fontSize: '0.625rem', fontWeight: 700,
+                            backgroundColor: `${colors.terminal.blue}1F`,
+                            border: `1px solid ${colors.terminal.blue}4D`,
+                            color: colors.terminal.blue, fontSize: '0.625rem', fontWeight: 700,
                             letterSpacing: '0.08em', lineHeight: 1.4, textTransform: 'uppercase',
                           }}>
                             <CallReceivedIcon sx={{ fontSize: '0.7rem' }} />
@@ -1588,7 +1592,7 @@ export default function ChainDetailPage() {
                               sx={{
                                 fontFamily: monoFontFamily, fontSize: '0.75rem',
                                 whiteSpace: 'pre-wrap', wordBreak: 'break-word', m: 0,
-                                borderLeft: '2px solid rgba(56, 139, 253, 0.35)', pl: 1.25,
+                                borderLeft: `2px solid ${colors.terminal.blue}59`, pl: 1.25,
                               }}
                               dangerouslySetInnerHTML={{ __html: highlightJson(inputFmt.formatted, theme.palette.mode) }}
                             />
@@ -1599,7 +1603,7 @@ export default function ChainDetailPage() {
                                 fontFamily: monoFontFamily, fontSize: '0.75rem',
                                 color: colors.fg.default, whiteSpace: 'pre-wrap',
                                 wordBreak: 'break-word', m: 0,
-                                borderLeft: '2px solid rgba(56, 139, 253, 0.35)', pl: 1.25,
+                                borderLeft: `2px solid ${colors.terminal.blue}59`, pl: 1.25,
                               }}
                             >
                               {log.input}
@@ -1612,9 +1616,9 @@ export default function ChainDetailPage() {
                           <Box sx={{
                             display: 'inline-flex', alignItems: 'center', gap: 0.5,
                             px: 0.75, py: 0.25, mb: 0.75, borderRadius: '4px',
-                            backgroundColor: 'rgba(63, 185, 80, 0.12)',
-                            border: '1px solid rgba(63, 185, 80, 0.3)',
-                            color: '#3fb950', fontSize: '0.625rem', fontWeight: 700,
+                            backgroundColor: `${colors.terminal.green}1F`,
+                            border: `1px solid ${colors.terminal.green}4D`,
+                            color: colors.terminal.green, fontSize: '0.625rem', fontWeight: 700,
                             letterSpacing: '0.08em', lineHeight: 1.4, textTransform: 'uppercase',
                           }}>
                             <CallMadeIcon sx={{ fontSize: '0.7rem' }} />
@@ -1626,7 +1630,7 @@ export default function ChainDetailPage() {
                               sx={{
                                 fontFamily: monoFontFamily, fontSize: '0.75rem',
                                 whiteSpace: 'pre-wrap', wordBreak: 'break-word', m: 0,
-                                borderLeft: '2px solid rgba(63, 185, 80, 0.35)', pl: 1.25,
+                                borderLeft: `2px solid ${colors.terminal.green}59`, pl: 1.25,
                               }}
                               dangerouslySetInnerHTML={{ __html: highlightJson(outputFmt.formatted, theme.palette.mode) }}
                             />
@@ -1637,7 +1641,7 @@ export default function ChainDetailPage() {
                                 fontFamily: monoFontFamily, fontSize: '0.75rem',
                                 color: colors.fg.default, whiteSpace: 'pre-wrap',
                                 wordBreak: 'break-word', m: 0,
-                                borderLeft: '2px solid rgba(63, 185, 80, 0.35)', pl: 1.25,
+                                borderLeft: `2px solid ${colors.terminal.green}59`, pl: 1.25,
                               }}
                             >
                               {log.output}
