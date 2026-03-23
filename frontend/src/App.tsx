@@ -18,6 +18,7 @@ import GroupsPage from './pages/GroupsPage';
 import ProfilePage from './pages/ProfilePage';
 import TracesPage from './pages/TracesPage';
 import CostPage from './pages/CostPage';
+import MonitoringPage from './pages/MonitoringPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import { Box, CircularProgress } from '@mui/material';
@@ -78,6 +79,7 @@ export default function App() {
         <Route path="/groups" element={<GroupsPage />} />
         <Route path="/traces" element={<TracesPage />} />
         <Route path="/cost" element={<CostPage />} />
+        <Route path="/monitoring" element={<MonitoringPage />} />
         <Route path="/profile" element={<ProfilePage />} />
       </Route>
     </Routes>

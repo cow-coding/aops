@@ -142,13 +142,37 @@ async def get_chain_stats(
 
 
 async def get_chain_logs(
-    db: AsyncSession, chain_id: uuid.UUID, limit: int, offset: int
+    db: AsyncSession,
+    chain_id: uuid.UUID,
+    limit: int,
+    offset: int,
+    slow_only: bool = False,
 ) -> tuple[list[ChainCallLog], int]:
     base_join = (
         select(ChainCallLog)
-        .join(Chain, (ChainCallLog.chain_name == Chain.name) & (ChainCallLog.agent_id == Chain.agent_id))
+        .join(
+            Chain,
+            (ChainCallLog.chain_name == Chain.name) & (ChainCallLog.agent_id == Chain.agent_id),
+        )
         .where(Chain.id == chain_id)
     )
+
+    if slow_only:
+        # Compute p95 for this chain (all-time) as a scalar subquery, then filter above it
+        p95_subq = (
+            select(
+                func.percentile_cont(0.95).within_group(ChainCallLog.latency_ms.asc())
+            )
+            .join(
+                Chain,
+                (ChainCallLog.chain_name == Chain.name)
+                & (ChainCallLog.agent_id == Chain.agent_id),
+            )
+            .where(Chain.id == chain_id)
+            .where(ChainCallLog.latency_ms.isnot(None))
+            .scalar_subquery()
+        )
+        base_join = base_join.where(ChainCallLog.latency_ms > p95_subq)
 
     total = (await db.execute(select(func.count()).select_from(base_join.subquery()))).scalar_one()
 
