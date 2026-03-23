@@ -140,6 +140,7 @@ async def get_chain_logs(
     chain_id: uuid.UUID,
     limit: int = Query(default=30, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
+    slow_only: bool = Query(default=False, description="true이면 해당 체인 전체 기간 p95 초과 로그만 반환"),
     auth: User | uuid.UUID = Depends(get_chain_reader_auth),
     db: AsyncSession = Depends(get_db),
 ):
@@ -147,7 +148,7 @@ async def get_chain_logs(
     chain = await chain_service.get_chain(db, chain_id)
     if not chain or chain.agent_id != agent_id:
         raise HTTPException(status_code=404, detail="Chain not found")
-    items, total = await chain_service.get_chain_logs(db, chain_id, limit, offset)
+    items, total = await chain_service.get_chain_logs(db, chain_id, limit, offset, slow_only)
     return ChainLogListResponse(items=items, total=total)
 
 

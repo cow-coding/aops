@@ -51,10 +51,11 @@ export const chainApi = {
   getChainStatsSummary: (agentId: string) =>
     api.get<ChainStatsSummary>(`/agents/${agentId}/chains/stats/summary`),
 
-  getLogs: (agentId: string, chainId: string, params?: { limit?: number; offset?: number }) => {
+  getLogs: (agentId: string, chainId: string, params?: { limit?: number; offset?: number; slow_only?: boolean }) => {
     const qs = new URLSearchParams();
     if (params?.limit !== undefined) qs.set('limit', String(params.limit));
     if (params?.offset !== undefined) qs.set('offset', String(params.offset));
+    if (params?.slow_only) qs.set('slow_only', 'true');
     const query = qs.toString() ? `?${qs.toString()}` : '';
     return api.get<{ items: ChainLog[]; total: number }>(`/agents/${agentId}/chains/${chainId}/logs${query}`);
   },

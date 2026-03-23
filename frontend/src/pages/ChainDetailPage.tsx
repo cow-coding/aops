@@ -27,7 +27,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
+import { useTheme, alpha } from '@mui/material/styles';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
@@ -39,6 +39,7 @@ import CodeOutlinedIcon from '@mui/icons-material/CodeOutlined';
 import DifferenceOutlinedIcon from '@mui/icons-material/DifferenceOutlined';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import {
   BarChart, Bar, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid,
   Tooltip as RechartsTooltip, ResponsiveContainer, Legend, ReferenceArea,
@@ -649,6 +650,7 @@ export default function ChainDetailPage() {
   const logsRef = useRef<ChainLog[]>([]);
   const [logsPage, setLogsPage] = useState(1);
   const [logsTotalPages, setLogsTotalPages] = useState(1);
+  const [showSlowOnly, setShowSlowOnly] = useState(false);
   const LOGS_PAGE_SIZE = 30;
 
   const loadStats = useCallback(() => {
@@ -679,11 +681,11 @@ export default function ChainDetailPage() {
       .finally(() => setTimeseriesLoading(false));
   }, [agentId, chainId]);
 
-  const loadLogs = useCallback((page = 1) => {
+  const loadLogs = useCallback((page = 1, slowOnly = false) => {
     if (!agentId || !chainId) return;
     setLogsLoading(true);
     setLogsError(null);
-    chainApi.getLogs(agentId, chainId, { limit: LOGS_PAGE_SIZE, offset: (page - 1) * LOGS_PAGE_SIZE })
+    chainApi.getLogs(agentId, chainId, { limit: LOGS_PAGE_SIZE, offset: (page - 1) * LOGS_PAGE_SIZE, slow_only: slowOnly || undefined })
       .then((data) => {
         setLogs(data.items);
         logsRef.current = data.items;
@@ -715,7 +717,7 @@ export default function ChainDetailPage() {
   }, [activeTab, agentId, chainId]);
 
   useEffect(() => {
-    if (logsLoaded) loadLogs(logsPage);
+    if (logsLoaded) loadLogs(logsPage, showSlowOnly);
   }, [logsPage]);
 
   const loadData = () => {
@@ -737,6 +739,16 @@ export default function ChainDetailPage() {
   useEffect(() => {
     loadData();
   }, [agentId, chainId]);
+
+  useEffect(() => {
+    if (activeTab === 2 && !statsLoaded && !statsLoading) {
+      loadTimeseries(timeseriesParamsRef.current);
+    }
+    if (activeTab === 3) {
+      if (!logsLoaded && !logsLoading) loadLogs();
+      if (!stats) loadStats();
+    }
+  }, [activeTab]);
 
   const handleEdit = () => {
     if (!chain) return;
@@ -980,7 +992,10 @@ export default function ChainDetailPage() {
           setForm({});
           setSaveError(null);
           if (v === 2) loadTimeseries(timeseriesParamsRef.current);
-          if (v === 3 && !logsLoaded && !logsLoading) loadLogs();
+          if (v === 3) {
+            if (!logsLoaded && !logsLoading) loadLogs();
+            if (!stats) loadStats();
+          }
         }}>
           <Tab label="Prompt" />
           <Tab label="History" />
@@ -1490,10 +1505,44 @@ export default function ChainDetailPage() {
           )}
           {!logsLoading && !logsError && logs.length > 0 && (
             <>
+            {stats?.p95_latency_ms != null && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1 }}>
+                <Typography sx={{ fontSize: '0.75rem', color: colors.fg.subtle }}>·</Typography>
+                <Box
+                  onClick={() => {
+                    const next = !showSlowOnly;
+                    setShowSlowOnly(next);
+                    setLogsPage(1);
+                    loadLogs(1, next);
+                  }}
+                  sx={{
+                    display: 'flex', alignItems: 'center', gap: 0.25,
+                    cursor: 'pointer', px: 0.75, py: 0.25, borderRadius: '4px',
+                    background: showSlowOnly ? colors.danger.muted : 'transparent',
+                    border: `1px solid ${showSlowOnly ? colors.danger.fg : 'transparent'}`,
+                    transition: 'all 0.15s',
+                    '&:hover': { background: colors.danger.subtle },
+                  }}
+                >
+                  <WarningAmberOutlinedIcon sx={{ fontSize: 12, color: colors.danger.fg }} />
+                  <Typography sx={{ fontSize: '0.75rem', color: colors.danger.fg }}>
+                    Slow
+                  </Typography>
+                </Box>
+              </Box>
+            )}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-              {logs.map((log) => {
+              {logs
+                .filter((log) => {
+                  if (!showSlowOnly) return true;
+                  const p95 = stats?.p95_latency_ms ?? null;
+                  return log.status !== 'error' && p95 !== null && log.latency_ms !== null && log.latency_ms > p95;
+                })
+                .map((log) => {
                 const isNew = newLogIds.has(log.id);
                 const isError = log.status === 'error';
+                const p95 = stats?.p95_latency_ms ?? null;
+                const isSlow = !isError && p95 !== null && log.latency_ms !== null && log.latency_ms > p95;
                 const inputFmt = log.input !== null ? tryFormatJson(log.input) : null;
                 const outputFmt = log.output !== null ? tryFormatJson(log.output) : null;
                 return (
@@ -1504,6 +1553,7 @@ export default function ChainDetailPage() {
                   sx={{
                     border: isError
                       ? `1px solid ${colors.danger.muted}`
+                      : isSlow ? `1px solid ${alpha(colors.danger.fg, 0.35)}`
                       : isNew ? `1px solid ${colors.terminal.blue}80` : `1px solid ${colors.border.muted}`,
                     borderRadius: '8px !important',
                     background: isError
@@ -1514,6 +1564,7 @@ export default function ChainDetailPage() {
                     '&.Mui-expanded': {
                       borderColor: isError
                         ? colors.danger.fg
+                        : isSlow ? colors.danger.fg
                         : isNew ? `${colors.terminal.blue}80` : colors.border.default,
                     },
                   }}
@@ -1537,9 +1588,18 @@ export default function ChainDetailPage() {
                           error
                         </Box>
                       )}
-                      <Typography sx={{ fontSize: '0.75rem', color: colors.fg.subtle, flexShrink: 0 }}>
-                        {log.latency_ms !== null ? `${log.latency_ms}ms` : '—'}
-                      </Typography>
+                      <Tooltip
+                        title={isSlow ? `Slow — this call took ${log.latency_ms}ms (p95: ${p95}ms)` : ''}
+                        placement="top"
+                        disableHoverListener={!isSlow}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+                          <Typography sx={{ fontSize: '0.75rem', color: isSlow ? colors.danger.fg : colors.fg.subtle }}>
+                            {log.latency_ms !== null ? `${log.latency_ms}ms` : '—'}
+                          </Typography>
+                          {isSlow && <WarningAmberOutlinedIcon sx={{ fontSize: 12, color: colors.danger.fg }} />}
+                        </Box>
+                      </Tooltip>
                     </Box>
                   </AccordionSummary>
                   {(log.input !== null || log.output !== null || isError) && (
