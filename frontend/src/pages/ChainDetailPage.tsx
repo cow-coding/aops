@@ -50,6 +50,7 @@ import { chainApi } from '../services/chainApi';
 import { monoFontFamily } from '../theme';
 import TimeRangeSelector, { granularityFromParams } from '../components/TimeRangeSelector';
 import type { TimeseriesParams } from '../components/TimeRangeSelector';
+import EmptyState from '../components/EmptyState';
 import { formatDateTime, formatBucketLabel } from '../utils/date';
 
 function escapeHtml(str: string): string {
@@ -1431,22 +1432,12 @@ export default function ChainDetailPage() {
                   </Box>
                 </Box>
               ) : !timeseriesLoading ? (
-                <Box
-                  sx={{
-                    textAlign: 'center',
-                    py: 8,
-                    border: `1px solid ${colors.border.muted}`,
-                    borderRadius: '8px',
-                    background: colors.canvas.subtle,
-                  }}
-                >
-                  <Typography sx={{ color: colors.fg.muted, fontWeight: 500, mb: 0.5 }}>
-                    No data for this range
-                  </Typography>
-                  <Typography sx={{ color: colors.fg.subtle, fontSize: '0.8125rem' }}>
-                    Try selecting a wider range
-                  </Typography>
-                </Box>
+                <EmptyState
+                  title="No data for this range"
+                  description="Try selecting a wider range"
+                  size="md"
+                  bordered
+                />
               ) : null}
             </>
           )}

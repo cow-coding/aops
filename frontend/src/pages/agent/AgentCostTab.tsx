@@ -25,6 +25,7 @@ import type {
 import { modelPricingApi } from '../../services/modelPricingApi';
 import { monoFontFamily } from '../../theme';
 import type { AgentDetailContext } from '../../types/agentDetail';
+import EmptyState from '../../components/EmptyState';
 
 // ── Period helpers ─────────────────────────────────────────────────────────────
 
@@ -292,11 +293,7 @@ function ChainCostBreakdown({
 
       {/* Empty */}
       {!loading && !error && sorted.length === 0 && (
-        <Box sx={{ py: 6, display: 'flex', justifyContent: 'center' }}>
-          <Typography sx={{ fontSize: '0.8125rem', color: colors.fg.subtle }}>
-            No chain data for this period
-          </Typography>
-        </Box>
+        <EmptyState title="No chain data for this period" size="sm" />
       )}
 
       {/* Rows */}
@@ -484,9 +481,7 @@ function AgentCostTrendChart({
 
       {!chartLoading && !chartError && buckets.length === 0 && (
         <Box sx={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Typography sx={{ fontSize: '0.8125rem', color: colors.fg.subtle }}>
-            No data for this period
-          </Typography>
+          <EmptyState title="No data for this period" size="sm" />
         </Box>
       )}
 
@@ -683,11 +678,7 @@ function ModelEfficiency({
 
       {/* Empty */}
       {!loading && !error && rows.length === 0 && (
-        <Box sx={{ py: 6, display: 'flex', justifyContent: 'center' }}>
-          <Typography sx={{ fontSize: '0.8125rem', color: colors.fg.subtle }}>
-            No model usage data for this period
-          </Typography>
-        </Box>
+        <EmptyState title="No model usage data for this period" size="sm" />
       )}
 
       {/* Model rows */}
@@ -901,7 +892,7 @@ export default function AgentCostTab() {
   const theme = useTheme();
   const colors = theme.colors;
 
-  const [period, setPeriod] = useState<UsagePeriod>('24h');
+  const [period, setPeriod] = useState<UsagePeriod>('all');
 
   // KPI data — derived from costByAgent filtered client-side
   const [kpiData, setKpiData] = useState<KpiData | null>(null);

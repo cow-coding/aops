@@ -20,6 +20,7 @@ import {
 import { useTheme } from '@mui/material/styles';
 import { useNavigate } from 'react-router-dom';
 import AttachMoneyOutlinedIcon from '@mui/icons-material/AttachMoneyOutlined';
+import DoNotDisturbOnOutlinedIcon from '@mui/icons-material/DoNotDisturbOnOutlined';
 import SearchIcon from '@mui/icons-material/Search';
 import SyncIcon from '@mui/icons-material/Sync';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
@@ -42,6 +43,7 @@ import type {
 } from '../services/modelPricingApi';
 import { modelPricingApi } from '../services/modelPricingApi';
 import { monoFontFamily } from '../theme';
+import EmptyState from '../components/EmptyState';
 
 const PAGE_SIZE = 20;
 
@@ -151,7 +153,24 @@ function FeatureBadge({ icon, label, active }: { icon: React.ReactNode; label: s
   const theme = useTheme();
   const colors = theme.colors;
 
-  if (!active) return <Typography sx={{ fontSize: '0.75rem', color: colors.fg.subtle }}>—</Typography>;
+  if (!active) return (
+    <Chip
+      icon={<Box sx={{ display: 'flex', alignItems: 'center', '& svg': { fontSize: '0.7rem !important' } }}><DoNotDisturbOnOutlinedIcon /></Box>}
+      label={label}
+      size="small"
+      sx={{
+        height: 20,
+        fontSize: '0.6875rem',
+        backgroundColor: colors.canvas.elevated,
+        color: colors.fg.subtle,
+        border: `1px solid ${colors.border.muted}`,
+        cursor: 'default',
+        '& .MuiChip-label': { px: 0.75 },
+        '& .MuiChip-icon': { color: colors.fg.subtle, ml: 0.5 },
+        '&:hover': { backgroundColor: colors.canvas.elevated },
+      }}
+    />
+  );
 
   return (
     <Chip
@@ -164,8 +183,10 @@ function FeatureBadge({ icon, label, active }: { icon: React.ReactNode; label: s
         backgroundColor: colors.success.subtle,
         color: colors.success.fg,
         border: `1px solid ${colors.success.muted}`,
+        cursor: 'default',
         '& .MuiChip-label': { px: 0.75 },
         '& .MuiChip-icon': { color: colors.success.fg, ml: 0.5 },
+        '&:hover': { backgroundColor: colors.success.subtle },
       }}
     />
   );
@@ -186,6 +207,7 @@ function ProviderTab() {
   const [syncSuccess, setSyncSuccess] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedProvider, setSelectedProvider] = useState<string>('');
   const [page, setPage] = useState(1);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
@@ -246,14 +268,22 @@ function ProviderTab() {
       .catch(() => {});
   }, []);
 
+  // Debounce search input — 300ms
   useEffect(() => {
-    load(page, search, selectedProvider);
-  }, [load, page, search, selectedProvider]);
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
-  // Reset page when filters change
+  // Filter change: reset to page 1 + load
   useEffect(() => {
+    load(1, debouncedSearch, selectedProvider);
     setPage(1);
-  }, [search, selectedProvider]);
+  }, [debouncedSearch, selectedProvider]);
+
+  // Page manual change only
+  useEffect(() => {
+    if (page !== 1) load(page, debouncedSearch, selectedProvider);
+  }, [page]);
 
   const handleSync = useCallback(() => {
     setSyncing(true);
@@ -264,12 +294,12 @@ function ProviderTab() {
       .then((result) => {
         setSyncSuccess(`Synced ${result.synced} models successfully.`);
         // Reload after sync
-        load(1, search, selectedProvider);
+        load(1, debouncedSearch, selectedProvider);
         setPage(1);
       })
       .catch((err: Error) => setSyncError(err.message))
       .finally(() => setSyncing(false));
-  }, [load, search, selectedProvider]);
+  }, [load, debouncedSearch, selectedProvider]);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -392,14 +422,7 @@ function ProviderTab() {
       )}
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      {/* Loading */}
-      {loading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress size={28} />
-        </Box>
-      )}
-
-      {/* Empty state */}
+      {/* Empty state — only when not loading and no items */}
       {!loading && !error && items.length === 0 && (
         <Box
           sx={{
@@ -432,9 +455,25 @@ function ProviderTab() {
         </Box>
       )}
 
-      {/* Table */}
-      {!loading && !error && items.length > 0 && (
-        <>
+      {/* Table — kept visible during loading to prevent layout shift */}
+      {!error && items.length > 0 && (
+        <Box sx={{ position: 'relative' }}>
+          {loading && (
+            <Box
+              sx={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'rgba(0,0,0,0.25)',
+                borderRadius: '4px',
+                zIndex: 1,
+              }}
+            >
+              <CircularProgress size={28} />
+            </Box>
+          )}
           <TableContainer>
             <Table size="small">
               <TableHead>
@@ -647,7 +686,14 @@ function ProviderTab() {
               />
             )}
           </Box>
-        </>
+        </Box>
+      )}
+
+      {/* Initial loading — no items yet */}
+      {loading && items.length === 0 && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+          <CircularProgress size={28} />
+        </Box>
       )}
     </Box>
   );
@@ -983,9 +1029,7 @@ function CostTrendChart({ period }: { period: UsagePeriod }) {
       )}
       {!chartLoading && !chartError && buckets.length === 0 && (
         <Box sx={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Typography sx={{ fontSize: '0.8125rem', color: colors.fg.subtle }}>
-            No data for this period
-          </Typography>
+          <EmptyState title="No data for this period" size="sm" />
         </Box>
       )}
       {!chartLoading && !chartError && buckets.length > 0 && (
@@ -1262,16 +1306,6 @@ function ModelCatalog({ totalModels }: { totalModels: number }) {
   const colors = theme.colors;
   const [open, setOpen] = useState(false);
 
-  const [syncing, setSyncing] = useState(false);
-
-  const handleSync = useCallback(() => {
-    setSyncing(true);
-    modelPricingApi
-      .sync()
-      .catch(() => {})
-      .finally(() => setSyncing(false));
-  }, []);
-
   return (
     <Box
       sx={{
@@ -1309,33 +1343,11 @@ function ModelCatalog({ totalModels }: { totalModels: number }) {
         <Typography sx={{ ...sectionLabelSx, color: colors.fg.subtle, flex: 1 }}>
           Model Catalog{totalModels > 0 ? ` · ${totalModels} models` : ''}
         </Typography>
-        <Tooltip title="Sync latest pricing data">
-          <span>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={
-                syncing ? (
-                  <CircularProgress size={10} sx={{ color: 'inherit' }} />
-                ) : (
-                  <SyncIcon sx={{ fontSize: '0.75rem !important' }} />
-                )
-              }
-              onClick={(e) => { e.stopPropagation(); handleSync(); }}
-              disabled={syncing}
-              sx={{ fontSize: '0.6875rem', py: 0.25 }}
-            >
-              {syncing ? 'Syncing…' : 'Sync'}
-            </Button>
-          </span>
-        </Tooltip>
       </Box>
 
-      {open && (
-        <Box sx={{ p: 2.5 }}>
-          <ProviderTab />
-        </Box>
-      )}
+      <Box sx={{ p: 2.5, display: open ? 'block' : 'none' }}>
+        <ProviderTab />
+      </Box>
     </Box>
   );
 }
@@ -1346,7 +1358,7 @@ export default function CostPage() {
   const theme = useTheme();
   const colors = theme.colors;
 
-  const [period, setPeriod] = useState<UsagePeriod>('24h');
+  const [period, setPeriod] = useState<UsagePeriod>('all');
 
   // Agent-level data
   const [agentData, setAgentData] = useState<{

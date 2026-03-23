@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import {
   Accordion,
   AccordionDetails,
@@ -17,7 +17,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
+import { useTheme, alpha } from '@mui/material/styles';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import CallMadeIcon from '@mui/icons-material/CallMade';
 import CallReceivedIcon from '@mui/icons-material/CallReceived';
@@ -34,6 +34,7 @@ import { chainApi } from '../services/chainApi';
 import { runsApi } from '../services/runsApi';
 import { monoFontFamily } from '../theme';
 import StackTraceModal from '../components/StackTraceModal';
+import EmptyState from '../components/EmptyState';
 
 // ── JSON highlight (same as ChainDetailPage) ──────────────────────────────────
 
@@ -83,6 +84,8 @@ function highlightJson(formatted: string, mode: 'dark' | 'light' = 'dark'): stri
 
 const AGENT_DOT_COLORS = ['#58a6ff', '#3fb950', '#f78166', '#d2a8ff', '#ffa657', '#79c0ff', '#56d364', '#ff7b72'];
 
+const EMPTY_MAP: Record<string, number> = {};
+
 function agentDotColor(agentId: string): string {
   let hash = 0;
   for (const ch of agentId) hash = ((hash * 31) + ch.charCodeAt(0)) >>> 0;
@@ -102,11 +105,12 @@ function formatDuration(ms: number | null): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-type TimeRange = '1h' | '24h' | '7d';
+type TimeRange = '1h' | '24h' | '7d' | '30d' | 'all';
 
-function timeRangeToAfter(range: TimeRange): string {
+function timeRangeToAfter(range: TimeRange): string | undefined {
+  if (range === 'all') return undefined;
   const now = Date.now();
-  const offsets: Record<TimeRange, number> = { '1h': 3600000, '24h': 86400000, '7d': 604800000 };
+  const offsets: Record<Exclude<TimeRange, 'all'>, number> = { '1h': 3600000, '24h': 86400000, '7d': 604800000, '30d': 2592000000 };
   return new Date(now - offsets[range]).toISOString();
 }
 
@@ -229,7 +233,7 @@ function RunDetailPanel({ detail, mode, chainLatencyMap }: { detail: RunDetail; 
           <Box
             key={call.id}
             sx={{
-              border: `1px solid ${isSlowCall ? colors.danger.muted : colors.border.muted}`,
+              border: `1px solid ${isSlowCall ? alpha(colors.danger.fg, 0.35) : colors.border.muted}`,
               borderRadius: '6px',
               background: colors.canvas.elevated,
               overflow: 'hidden',
@@ -273,7 +277,7 @@ function RunDetailPanel({ detail, mode, chainLatencyMap }: { detail: RunDetail; 
                   <Box sx={{
                     display: 'flex', alignItems: 'center', gap: 0.5,
                     px: 0.75, py: 0, height: 22, borderRadius: '4px',
-                    border: `1px solid ${isSlowCall ? colors.danger.muted : colors.border.muted}`,
+                    border: `1px solid ${isSlowCall ? alpha(colors.danger.fg, 0.35) : colors.border.muted}`,
                     fontSize: '0.6875rem', color: isSlowCall ? colors.danger.fg : colors.fg.subtle,
                   }}>
                     {call.latency_ms}ms
@@ -416,7 +420,7 @@ function RunDetailPanel({ detail, mode, chainLatencyMap }: { detail: RunDetail; 
 
 // ── Run row ───────────────────────────────────────────────────────────────────
 
-function RunRow({
+const RunRow = memo(function RunRow({
   run,
   expanded,
   detail,
@@ -424,6 +428,7 @@ function RunRow({
   detailError,
   onToggle,
   onOpenStackTrace,
+  onNavigate,
   showViewError,
   mode,
   isSlow,
@@ -434,8 +439,9 @@ function RunRow({
   detail: RunDetail | null;
   detailLoading: boolean;
   detailError: string | null;
-  onToggle: () => void;
-  onOpenStackTrace: (() => void) | null;
+  onToggle: (runId: string) => void;
+  onOpenStackTrace: ((runId: string) => void) | null;
+  onNavigate: (path: string) => void;
   showViewError: boolean;
   mode: 'dark' | 'light';
   isSlow: boolean;
@@ -443,7 +449,6 @@ function RunRow({
 }) {
   const theme = useTheme();
   const colors = theme.colors;
-  const navigate = useNavigate();
   const dotColor = agentDotColor(run.agent_id);
 
   return (
@@ -451,10 +456,11 @@ function RunRow({
       disableGutters
       elevation={0}
       expanded={expanded}
-      onChange={onToggle}
+      onChange={() => onToggle(run.id)}
+      TransitionProps={{ unmountOnExit: true }}
       data-run-id={run.id}
       sx={{
-        border: `1px solid ${isSlow ? colors.danger.muted : colors.border.muted}`,
+        border: `1px solid ${isSlow ? colors.danger.fg : colors.border.muted}`,
         borderRadius: '8px !important',
         background: colors.canvas.subtle,
         '&:before': { display: 'none' },
@@ -471,7 +477,7 @@ function RunRow({
             <Box sx={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
             <Box
               component="span"
-              onClick={(e) => { e.stopPropagation(); navigate(`/agents/${run.agent_id}`); }}
+              onClick={(e) => { e.stopPropagation(); onNavigate(`/agents/${run.agent_id}`); }}
               sx={{
                 display: 'inline-flex', alignItems: 'center', gap: 0.4,
                 cursor: 'pointer', color: colors.fg.default, fontWeight: 500,
@@ -562,7 +568,7 @@ function RunRow({
             <Button
               size="small"
               endIcon={<ErrorOutlineIcon sx={{ fontSize: '0.7rem !important' }} />}
-              onClick={(e) => { e.stopPropagation(); navigate(`/agents/${run.agent_id}/traces?open=${run.id}`); }}
+              onClick={(e) => { e.stopPropagation(); onNavigate(`/agents/${run.agent_id}/traces?open=${run.id}`); }}
               sx={{
                 fontSize: '0.6875rem',
                 color: colors.danger.fg,
@@ -577,7 +583,7 @@ function RunRow({
           <Button
             size="small"
             endIcon={<NorthEastIcon sx={{ fontSize: '0.7rem !important' }} />}
-            onClick={(e) => { e.stopPropagation(); navigate(`/agents/${run.agent_id}`); }}
+            onClick={(e) => { e.stopPropagation(); onNavigate(`/agents/${run.agent_id}`); }}
             sx={{
               fontSize: '0.6875rem',
               color: colors.accent.fg,
@@ -601,7 +607,7 @@ function RunRow({
           <Box sx={{ mt: detail ? 1.5 : 0 }}>
             <Button
               size="small"
-              onClick={(e) => { e.stopPropagation(); onOpenStackTrace(); }}
+              onClick={(e) => { e.stopPropagation(); onOpenStackTrace(run.id); }}
               sx={{
                 fontSize: '0.6875rem', color: colors.danger.fg, px: 1, py: 0.25, minHeight: 'unset',
                 '&:hover': { backgroundColor: colors.danger.subtle },
@@ -614,7 +620,7 @@ function RunRow({
       </AccordionDetails>
     </Accordion>
   );
-}
+});
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
@@ -628,6 +634,9 @@ export default function TracesPage({ agentId: fixedAgentId, showStackTrace = fal
   const colors = theme.colors;
   const mode = theme.palette.mode;
 
+  const navigate = useNavigate();
+  const handleNavigate = useCallback((path: string) => navigate(path), [navigate]);
+
   const [searchParams, setSearchParams] = useSearchParams();
   const edgeSource = searchParams.get('source');
   const edgeTarget = searchParams.get('target');
@@ -637,7 +646,7 @@ export default function TracesPage({ agentId: fixedAgentId, showStackTrace = fal
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string>('');
   const effectiveAgentId = fixedAgentId ?? selectedAgentId;
-  const [timeRange, setTimeRange] = useState<TimeRange>('24h');
+  const [timeRange, setTimeRange] = useState<TimeRange>('7d');
   const [runs, setRuns] = useState<RunSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -652,6 +661,10 @@ export default function TracesPage({ agentId: fixedAgentId, showStackTrace = fal
   const [details, setDetails] = useState<Record<string, RunDetail>>({});
   const [detailLoading, setDetailLoading] = useState<Record<string, boolean>>({});
   const [detailError, setDetailError] = useState<Record<string, string>>({});
+  const detailsRef = useRef(details);
+  detailsRef.current = details;
+  const detailLoadingRef = useRef(detailLoading);
+  detailLoadingRef.current = detailLoading;
   const [stackTraceRunId, setStackTraceRunId] = useState<string | null>(null);
   const openHandledRef = useRef(false);
 
@@ -784,18 +797,22 @@ export default function TracesPage({ agentId: fixedAgentId, showStackTrace = fal
   }, [fixedAgentId, runs]);
 
   const handleToggleRun = useCallback((runId: string) => {
-    if (expandedRunId === runId) {
-      setExpandedRunId(null);
-      return;
-    }
-    setExpandedRunId(runId);
-    if (details[runId] || detailLoading[runId]) return;
-    setDetailLoading((prev) => ({ ...prev, [runId]: true }));
-    runsApi.getDetail(runId)
-      .then((d) => setDetails((prev) => ({ ...prev, [runId]: d })))
-      .catch((err: Error) => setDetailError((prev) => ({ ...prev, [runId]: err.message })))
-      .finally(() => setDetailLoading((prev) => ({ ...prev, [runId]: false })));
-  }, [expandedRunId, details, detailLoading]);
+    setExpandedRunId((prev) => {
+      if (prev === runId) return null;
+      if (!detailsRef.current[runId] && !detailLoadingRef.current[runId]) {
+        setDetailLoading((d) => ({ ...d, [runId]: true }));
+        runsApi.getDetail(runId)
+          .then((d) => setDetails((prev) => ({ ...prev, [runId]: d })))
+          .catch((err: Error) => setDetailError((prev) => ({ ...prev, [runId]: err.message })))
+          .finally(() => setDetailLoading((d) => ({ ...d, [runId]: false })));
+      }
+      return runId;
+    });
+  }, []);
+
+  const handleOpenStackTrace = useCallback((runId: string) => {
+    setStackTraceRunId(runId);
+  }, []);
 
   return (
     <Box>
@@ -833,9 +850,9 @@ export default function TracesPage({ agentId: fixedAgentId, showStackTrace = fal
             exclusive
             onChange={(_, v) => { if (v) setTimeRange(v as TimeRange); }}
           >
-            {(['1h', '24h', '7d'] as TimeRange[]).map((r) => (
+            {(['1h', '24h', '7d', '30d', 'all'] as TimeRange[]).map((r) => (
               <ToggleButton key={r} value={r} sx={{ fontSize: '0.75rem', px: 1.5, textTransform: 'none' }}>
-                Last {r}
+                {r === 'all' ? 'All' : `Last ${r}`}
               </ToggleButton>
             ))}
           </ToggleButtonGroup>
@@ -1005,10 +1022,12 @@ export default function TracesPage({ agentId: fixedAgentId, showStackTrace = fal
       )}
       {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
       {!loading && !error && runs.length === 0 && (
-        <Box sx={{ py: fixedAgentId ? 6 : 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <TimelineOutlinedIcon sx={{ fontSize: fixedAgentId ? 48 : 64, color: colors.fg.subtle }} />
-          <Typography variant="body1" sx={{ color: colors.fg.muted }}>No runs in this time range.</Typography>
-        </Box>
+        <EmptyState
+          icon={<TimelineOutlinedIcon />}
+          title="No runs in this time range"
+          description="Try selecting a wider time range to find more results"
+          size={fixedAgentId ? 'md' : 'lg'}
+        />
       )}
       {!loading && !error && runs.length > 0 && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, mt: 0.5 }}>
@@ -1047,12 +1066,13 @@ export default function TracesPage({ agentId: fixedAgentId, showStackTrace = fal
                 detail={details[run.id] ?? null}
                 detailLoading={detailLoading[run.id] ?? false}
                 detailError={detailError[run.id] ?? null}
-                onToggle={() => handleToggleRun(run.id)}
-                onOpenStackTrace={showStackTrace ? () => setStackTraceRunId(run.id) : null}
+                onToggle={handleToggleRun}
+                onOpenStackTrace={showStackTrace ? handleOpenStackTrace : null}
+                onNavigate={handleNavigate}
                 showViewError={!showStackTrace}
                 mode={mode}
                 isSlow={medianDuration !== null && run.duration_ms !== null && run.duration_ms > medianDuration * 2}
-                chainLatencyMap={agentChainStats[run.agent_id] ?? {}}
+                chainLatencyMap={agentChainStats[run.agent_id] ?? EMPTY_MAP}
               />
             ))}
         </Box>

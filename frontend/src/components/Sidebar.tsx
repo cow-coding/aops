@@ -131,13 +131,6 @@ export default function Sidebar() {
           onClick={() => navigate('/traces')}
         />
         <NavItem
-          icon={<GroupsOutlinedIcon sx={{ fontSize: 16 }} />}
-          label="Groups"
-          active={isGroupsActive}
-          onClick={() => navigate('/groups')}
-        />
-
-        <NavItem
           icon={<AttachMoneyOutlinedIcon sx={{ fontSize: 16 }} />}
           label="Cost"
           active={isCostActive}
@@ -163,6 +156,13 @@ export default function Sidebar() {
           icon={<MonitorHeartOutlinedIcon sx={{ fontSize: 16 }} />}
           label="Monitoring"
           disabled
+        />
+
+        <NavItem
+          icon={<GroupsOutlinedIcon sx={{ fontSize: 16 }} />}
+          label="Groups"
+          active={isGroupsActive}
+          onClick={() => navigate('/groups')}
         />
       </Box>
 
