@@ -2,6 +2,12 @@ import { api } from './api';
 import type { Agent, AgentCreateRequest, AgentUpdateRequest } from '../types/agent';
 import type { AgentStats, AgentTimeseries } from '../types/agentStats';
 import type { TimeseriesParams } from '../components/TimeRangeSelector';
+import type {
+  HealthConfig,
+  HealthCheckLog,
+  HealthConfigCreateRequest,
+  HealthConfigUpdateRequest,
+} from '../types/healthCheck';
 
 export const agentApi = {
   list: () => api.get<Agent[]>('/agents/'),
@@ -31,4 +37,23 @@ export const agentApi = {
     if (params.granularity) qs.set('granularity', params.granularity);
     return api.get<AgentTimeseries>(`/agents/${id}/stats/timeseries?${qs.toString()}`);
   },
+
+  // Health Check Config
+  getHealthConfig: (agentId: string) =>
+    api.get<HealthConfig>(`/agents/${agentId}/health/config`),
+
+  createHealthConfig: (agentId: string, data: HealthConfigCreateRequest) =>
+    api.post<HealthConfig>(`/agents/${agentId}/health/config`, data),
+
+  updateHealthConfig: (agentId: string, data: HealthConfigUpdateRequest) =>
+    api.patch<HealthConfig>(`/agents/${agentId}/health/config`, data),
+
+  deleteHealthConfig: (agentId: string) =>
+    api.delete<void>(`/agents/${agentId}/health/config`),
+
+  triggerHealthCheck: (agentId: string) =>
+    api.post<HealthCheckLog>(`/agents/${agentId}/health/checks/trigger`, {}),
+
+  getHealthCheckLogs: (agentId: string, limit = 50) =>
+    api.get<HealthCheckLog[]>(`/agents/${agentId}/health/checks?limit=${limit}`),
 };

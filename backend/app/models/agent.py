@@ -44,3 +44,9 @@ class Agent(Base):
     agent_groups: Mapped[list["AgentGroup"]] = relationship(  # noqa: F821
         "AgentGroup", back_populates="agent", cascade="all, delete-orphan"
     )
+    health_config: Mapped["AgentHealthConfig | None"] = relationship(  # noqa: F821
+        "AgentHealthConfig", back_populates="agent", cascade="all, delete-orphan", uselist=False
+    )
+    health_check_logs: Mapped[list["HealthCheckLog"]] = relationship(  # noqa: F821
+        "HealthCheckLog", back_populates="agent", cascade="all, delete-orphan"
+    )

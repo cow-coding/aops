@@ -159,28 +159,42 @@ function StatusBadge({ status }: { status: AgentHealthStatus }) {
       bg: colors.success.subtle,
       border: colors.success.muted,
       label: 'Healthy',
-      tooltip: '정상 동작 중, 안정적으로 사용되고 있음',
+      tooltip: 'Operating normally with stable usage',
     },
     warning: {
       color: colors.attention.fg,
       bg: colors.attention.subtle,
       border: colors.attention.muted,
       label: 'Warning',
-      tooltip: '에러율 상승 또는 응답 지연 감지, 확인 필요',
+      tooltip: 'Elevated error rate or latency spike detected — review recommended',
     },
     critical: {
       color: colors.danger.fg,
       bg: colors.danger.subtle,
       border: colors.danger.muted,
       label: 'Critical',
-      tooltip: '심각한 에러율, 즉시 조치 필요',
+      tooltip: 'Critical error rate — immediate action required',
     },
     dormant: {
       color: colors.fg.subtle,
       bg: colors.canvas.elevated,
       border: colors.border.default,
       label: 'Dormant',
-      tooltip: '장기간 미사용, 폐기 또는 재활성화 검토 필요',
+      tooltip: 'No recent activity — consider deprecating or reactivating',
+    },
+    down: {
+      color: colors.danger.fg,
+      bg: colors.danger.subtle,
+      border: colors.danger.muted,
+      label: 'Down',
+      tooltip: 'Availability check failing — endpoint unreachable',
+    },
+    degraded: {
+      color: colors.attention.fg,
+      bg: colors.attention.subtle,
+      border: colors.attention.muted,
+      label: 'Degraded',
+      tooltip: 'Degraded availability — elevated latency or intermittent failures detected',
     },
   };
 
@@ -208,7 +222,7 @@ function StatusBadge({ status }: { status: AgentHealthStatus }) {
             borderRadius: '50%',
             backgroundColor: color,
             flexShrink: 0,
-            ...(status === 'critical' && {
+            ...((status === 'critical' || status === 'down') && {
               animation: 'statusPulse 1.5s ease-in-out infinite',
               '@keyframes statusPulse': {
                 '0%, 100%': { opacity: 1 },
@@ -372,8 +386,9 @@ export default function MonitoringPage() {
   const kpi = data?.kpi ?? null;
   const anomalyCount = agentHealth.filter((r) => r.status === 'critical' || r.status === 'warning').length;
   const dormantCount = agentHealth.filter((r) => r.status === 'dormant').length;
+  const downCount = agentHealth.filter((r) => r.status === 'down').length;
 
-  const STATUS_ORDER: Record<string, number> = { critical: 0, warning: 1, healthy: 2, dormant: 3 };
+  const STATUS_ORDER: Record<string, number> = { down: 0, degraded: 1, critical: 2, warning: 3, healthy: 4, dormant: 5 };
   const sortedHealth = [...agentHealth].sort(
     (a, b) => (STATUS_ORDER[a.status] ?? 4) - (STATUS_ORDER[b.status] ?? 4),
   );
@@ -505,7 +520,7 @@ export default function MonitoringPage() {
               }}
             >
               <Typography sx={{ fontSize: '0.8125rem', color: colors.fg.muted, mb: 0.5 }}>
-                Agent health is determined by two axes:
+                Agent health is determined by three axes:
               </Typography>
               <Box component="ul" sx={{ m: 0, pl: 2.5, '& li': { fontSize: '0.8125rem', color: colors.fg.muted, mb: 0.25 } }}>
                 <li>
@@ -526,6 +541,16 @@ export default function MonitoringPage() {
                   <Box component="ul" sx={{ mt: 0.25, pl: 2, '& li': { fontSize: '0.8125rem', color: colors.fg.muted, mb: 0 } }}>
                     <li><Typography component="span" sx={{ fontSize: '0.8125rem', fontWeight: 500, color: colors.fg.subtle }}>Dormant:</Typography> No runs recorded and last activity exceeds 2× the selected range.</li>
                     <li><Typography component="span" sx={{ fontSize: '0.8125rem', fontWeight: 500, color: colors.success.fg }}>Healthy:</Typography> Operating normally with stable usage.</li>
+                  </Box>
+                </li>
+                <li>
+                  <Typography component="span" sx={{ fontSize: '0.8125rem', fontWeight: 600, color: colors.fg.default }}>
+                    Availability
+                  </Typography>
+                  {' — based on periodic HTTP health checks (if configured)'}
+                  <Box component="ul" sx={{ mt: 0.25, pl: 2, '& li': { fontSize: '0.8125rem', color: colors.fg.muted, mb: 0 } }}>
+                    <li><Typography component="span" sx={{ fontSize: '0.8125rem', fontWeight: 500, color: colors.danger.fg }}>Down:</Typography> Health check endpoint unreachable or returning errors.</li>
+                    <li><Typography component="span" sx={{ fontSize: '0.8125rem', fontWeight: 500, color: colors.attention.fg }}>Degraded:</Typography> Intermittent failures or elevated response latency detected.</li>
                   </Box>
                 </li>
               </Box>
@@ -549,6 +574,28 @@ export default function MonitoringPage() {
                 <WarningAmberOutlinedIcon sx={{ fontSize: 13, color: colors.attention.fg }} />
                 <Typography sx={{ fontSize: '0.8125rem', color: colors.attention.fg, fontWeight: 500 }}>
                   {anomalyCount} agent{anomalyCount !== 1 ? 's' : ''} with anomalies detected
+                </Typography>
+              </Box>
+            )}
+
+            {/* Down banner */}
+            {downCount > 0 && (
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  px: 1.5,
+                  py: 0.875,
+                  mb: 1,
+                  borderRadius: '6px',
+                  border: `1px solid ${colors.danger.muted}`,
+                  background: colors.danger.subtle,
+                }}
+              >
+                <WarningAmberOutlinedIcon sx={{ fontSize: 13, color: colors.danger.fg }} />
+                <Typography sx={{ fontSize: '0.8125rem', color: colors.danger.fg, fontWeight: 500 }}>
+                  {downCount} agent{downCount !== 1 ? 's' : ''} down — availability check failing
                 </Typography>
               </Box>
             )}
@@ -589,13 +636,14 @@ export default function MonitoringPage() {
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TH label="Agent" width="22%" />
-                      <TH label="Runs" width="10%" />
-                      <TH label="Error Rate" width="12%" />
-                      <TH label="Avg Latency" width="14%" />
-                      <TH label="p95 Latency" width="14%" />
-                      <TH label="Null Rate" width="12%" />
-                      <TH label="Status" width="16%" />
+                      <TH label="Agent" width="20%" />
+                      <TH label="Runs" width="8%" />
+                      <TH label="Error Rate" width="10%" />
+                      <TH label="Avg Latency" width="12%" />
+                      <TH label="p95 Latency" width="12%" />
+                      <TH label="Null Rate" width="10%" />
+                      <TH label="Availability" width="14%" />
+                      <TH label="Status" width="14%" />
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -610,6 +658,20 @@ export default function MonitoringPage() {
                           sx={{
                             cursor: 'pointer',
                             transition: 'background 0.1s',
+                            ...(row.status === 'down' && {
+                              backgroundColor: alpha(colors.danger.fg, 0.04),
+                              '& td:first-of-type': {
+                                borderLeft: `3px solid ${colors.danger.fg}`,
+                                pl: '13px',
+                              },
+                            }),
+                            ...(row.status === 'degraded' && {
+                              backgroundColor: alpha(colors.attention.fg, 0.04),
+                              '& td:first-of-type': {
+                                borderLeft: `3px solid ${colors.attention.fg}`,
+                                pl: '13px',
+                              },
+                            }),
                             ...(isCritical && {
                               backgroundColor: alpha(colors.danger.fg, 0.04),
                               '& td:first-of-type': {
@@ -632,13 +694,18 @@ export default function MonitoringPage() {
                               },
                             }),
                             '&:hover': {
-                              backgroundColor: isCritical
-                                ? alpha(colors.danger.fg, 0.07)
-                                : isWarning
-                                ? alpha(colors.attention.fg, 0.07)
-                                : isDormant
-                                ? alpha(colors.fg.subtle, 0.06)
-                                : colors.canvas.elevated,
+                              backgroundColor:
+                                row.status === 'down'
+                                  ? alpha(colors.danger.fg, 0.07)
+                                  : row.status === 'degraded'
+                                  ? alpha(colors.attention.fg, 0.07)
+                                  : isCritical
+                                  ? alpha(colors.danger.fg, 0.07)
+                                  : isWarning
+                                  ? alpha(colors.attention.fg, 0.07)
+                                  : isDormant
+                                  ? alpha(colors.fg.subtle, 0.06)
+                                  : colors.canvas.elevated,
                             },
                           }}
                         >
@@ -696,6 +763,78 @@ export default function MonitoringPage() {
                             </Typography>
                           </TableCell>
                           <TableCell>
+                            {row.availability == null ? (
+                              <Typography sx={{ fontSize: '0.8125rem', color: colors.fg.subtle }}>
+                                —
+                              </Typography>
+                            ) : (
+                              <Tooltip
+                                title={
+                                  row.availability_latency_ms != null
+                                    ? `Latency: ${formatLatency(row.availability_latency_ms)}`
+                                    : ''
+                                }
+                                placement="top"
+                              >
+                                <Box
+                                  sx={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 0.5,
+                                    px: 0.875,
+                                    py: 0.375,
+                                    borderRadius: '4px',
+                                    border: `1px solid ${
+                                      row.availability === 'down'
+                                        ? colors.danger.muted
+                                        : row.availability === 'degraded'
+                                        ? colors.attention.muted
+                                        : colors.success.muted
+                                    }`,
+                                    backgroundColor:
+                                      row.availability === 'down'
+                                        ? colors.danger.subtle
+                                        : row.availability === 'degraded'
+                                        ? colors.attention.subtle
+                                        : colors.success.subtle,
+                                    cursor: 'default',
+                                  }}
+                                >
+                                  <Box
+                                    sx={{
+                                      width: 5,
+                                      height: 5,
+                                      borderRadius: '50%',
+                                      backgroundColor:
+                                        row.availability === 'down'
+                                          ? colors.danger.fg
+                                          : row.availability === 'degraded'
+                                          ? colors.attention.fg
+                                          : colors.success.fg,
+                                      flexShrink: 0,
+                                    }}
+                                  />
+                                  <Typography
+                                    sx={{
+                                      fontSize: '0.6875rem',
+                                      fontWeight: 600,
+                                      color:
+                                        row.availability === 'down'
+                                          ? colors.danger.fg
+                                          : row.availability === 'degraded'
+                                          ? colors.attention.fg
+                                          : colors.success.fg,
+                                      lineHeight: 1,
+                                      textTransform: 'capitalize',
+                                    }}
+                                  >
+                                    {row.availability}
+                                  </Typography>
+                                </Box>
+                              </Tooltip>
+                            )}
+                          </TableCell>
+                          <TableCell>
                             <StatusBadge status={row.status} />
                           </TableCell>
                         </TableRow>
@@ -745,7 +884,7 @@ export default function MonitoringPage() {
                           ? colors.danger.fg
                           : row.p95_latency_ms > 3000
                           ? colors.attention.fg
-                          : colors.border.hover;
+                          : colors.fg.subtle;
                       return (
                         <TableRow
                           key={`${row.agent_id}-${row.chain_name}-${i}`}

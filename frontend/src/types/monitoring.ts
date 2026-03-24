@@ -11,7 +11,7 @@ export interface MonitoringKPI {
   };
 }
 
-export type AgentHealthStatus = 'healthy' | 'warning' | 'critical' | 'dormant';
+export type AgentHealthStatus = 'healthy' | 'warning' | 'critical' | 'dormant' | 'down' | 'degraded';
 
 export interface AgentHealthRow {
   agent_id: string;
@@ -23,6 +23,8 @@ export interface AgentHealthRow {
   null_rate: number;        // 0.0–1.0 (null output rate)
   status: AgentHealthStatus;
   last_run_at: string | null;
+  availability: 'up' | 'down' | 'degraded' | null;
+  availability_latency_ms: number | null;
 }
 
 export interface SlowChainRow {

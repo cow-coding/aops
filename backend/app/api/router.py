@@ -6,6 +6,7 @@ from app.api.routes.auth import router as auth_router
 from app.api.routes.chain import router as chain_router
 from app.api.routes.chain_version import router as chain_version_router
 from app.api.routes.group import router as group_router
+from app.api.routes.health_check import router as health_check_router
 from app.api.routes.model_pricing import router as model_pricing_router
 from app.api.routes.monitoring import router as monitoring_router
 from app.api.routes.run import router as run_router
@@ -18,6 +19,7 @@ api_router.include_router(api_key_router)
 api_router.include_router(chain_router)
 api_router.include_router(chain_version_router)
 api_router.include_router(group_router)
+api_router.include_router(health_check_router)
 api_router.include_router(model_pricing_router)
 api_router.include_router(run_router)
 api_router.include_router(traces_router)
