@@ -2,8 +2,10 @@ import uuid
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.group import Group
+from app.models.user import User
 from app.models.user_group import UserGroup
 from app.schemas.group import GroupCreate
 
@@ -36,6 +38,18 @@ async def get_group(db: AsyncSession, group_id: uuid.UUID) -> Group | None:
     return await db.get(Group, group_id)
 
 
+async def get_group_members(
+    db: AsyncSession, group_id: uuid.UUID
+) -> list[UserGroup]:
+    result = await db.execute(
+        select(UserGroup)
+        .options(selectinload(UserGroup.user))
+        .where(UserGroup.group_id == group_id)
+        .order_by(UserGroup.role)
+    )
+    return list(result.scalars().all())
+
+
 async def get_membership(
     db: AsyncSession, group_id: uuid.UUID, user_id: uuid.UUID
 ) -> UserGroup | None:
@@ -61,8 +75,18 @@ async def add_member(
     membership = UserGroup(user_id=user_id, group_id=group_id, role=role)
     db.add(membership)
     await db.commit()
-    await db.refresh(membership)
-    return membership
+    # Re-query with user relationship loaded so the response includes user info
+    result = await db.execute(
+        select(UserGroup)
+        .options(selectinload(UserGroup.user))
+        .where(UserGroup.group_id == group_id, UserGroup.user_id == user_id)
+    )
+    return result.scalar_one()
+
+
+async def delete_group(db: AsyncSession, group: Group) -> None:
+    await db.delete(group)
+    await db.commit()
 
 
 async def remove_member(db: AsyncSession, membership: UserGroup) -> None:
@@ -73,7 +97,13 @@ async def remove_member(db: AsyncSession, membership: UserGroup) -> None:
 async def update_member_role(
     db: AsyncSession, membership: UserGroup, role: str
 ) -> UserGroup:
+    group_id = membership.group_id
+    user_id = membership.user_id
     membership.role = role
     await db.commit()
-    await db.refresh(membership)
-    return membership
+    result = await db.execute(
+        select(UserGroup)
+        .options(selectinload(UserGroup.user))
+        .where(UserGroup.group_id == group_id, UserGroup.user_id == user_id)
+    )
+    return result.scalar_one()

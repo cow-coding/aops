@@ -11,14 +11,21 @@ export interface Member {
   role: 'owner' | 'member';
 }
 
+export interface MemberWithUser {
+  user_id: string;
+  group_id: string;
+  role: 'owner' | 'member';
+  user: { id: string; email: string; name: string };
+}
+
 export interface GroupCreateRequest {
   name: string;
   description?: string;
 }
 
 export interface MemberAddRequest {
-  user_id: string;
-  role?: 'owner' | 'member';
+  email: string;
+  role?: 'member';
 }
 
 export interface MemberUpdateRequest {

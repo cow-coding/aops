@@ -10,6 +10,7 @@ from app.api.routes.model_pricing import router as model_pricing_router
 from app.api.routes.monitoring import router as monitoring_router
 from app.api.routes.run import router as run_router
 from app.api.routes.traces import router as traces_router
+from app.api.routes.user import router as user_router
 
 api_router = APIRouter()
 api_router.include_router(auth_router)
@@ -21,6 +22,7 @@ api_router.include_router(group_router)
 api_router.include_router(model_pricing_router)
 api_router.include_router(run_router)
 api_router.include_router(traces_router)
+api_router.include_router(user_router)
 api_router.include_router(monitoring_router)
 
 

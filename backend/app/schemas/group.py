@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class GroupCreate(BaseModel):
@@ -19,8 +19,16 @@ class GroupResponse(BaseModel):
     created_at: datetime
 
 
+class UserInfo(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    email: EmailStr
+    name: str
+
+
 class MemberAdd(BaseModel):
-    user_id: uuid.UUID
+    email: EmailStr
     role: Literal["owner", "member"] = "member"
 
 
@@ -34,3 +42,4 @@ class MemberResponse(BaseModel):
     user_id: uuid.UUID
     group_id: uuid.UUID
     role: str
+    user: UserInfo | None = None

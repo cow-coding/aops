@@ -36,6 +36,22 @@ async def list_groups(
     return await group_service.get_user_groups(db, current_user.id)
 
 
+@router.get("/{group_id}/members", response_model=list[MemberResponse])
+async def list_members(
+    group_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    group = await group_service.get_group(db, group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found.")
+
+    if not await group_service.get_membership(db, group_id, current_user.id):
+        raise HTTPException(status_code=403, detail="Access denied.")
+
+    return await group_service.get_group_members(db, group_id)
+
+
 @router.post("/{group_id}/members", response_model=MemberResponse, status_code=201)
 async def add_member(
     group_id: uuid.UUID,
@@ -50,16 +66,32 @@ async def add_member(
     if not await group_service.is_group_owner(db, group_id, current_user.id):
         raise HTTPException(status_code=403, detail="Only group owners can add members.")
 
-    # Verify the target user exists
-    target = await user_service.get_user_by_id(db, data.user_id)
+    # Resolve email → user
+    target = await user_service.get_user_by_email(db, data.email)
     if not target:
         raise HTTPException(status_code=404, detail="User not found.")
 
-    existing = await group_service.get_membership(db, group_id, data.user_id)
+    existing = await group_service.get_membership(db, group_id, target.id)
     if existing:
         raise HTTPException(status_code=409, detail="User is already a member.")
 
-    return await group_service.add_member(db, group_id, data.user_id, data.role)
+    return await group_service.add_member(db, group_id, target.id, data.role)
+
+
+@router.delete("/{group_id}", status_code=204)
+async def delete_group(
+    group_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    group = await group_service.get_group(db, group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found.")
+
+    if not await group_service.is_group_owner(db, group_id, current_user.id):
+        raise HTTPException(status_code=403, detail="Only group owners can delete the group.")
+
+    await group_service.delete_group(db, group)
 
 
 @router.delete("/{group_id}/members/{user_id}", status_code=204)

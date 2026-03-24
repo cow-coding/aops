@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Alert,
   Box,
@@ -14,6 +15,7 @@ import {
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
 import type { Group } from '../types/group';
 import { groupApi } from '../services/groupApi';
@@ -28,6 +30,8 @@ function timeAgo(dateStr: string): string {
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
 }
+
+// ── Create group dialog ────────────────────────────────────────────────────────
 
 function CreateGroupDialog({
   open,
@@ -134,9 +138,12 @@ function CreateGroupDialog({
   );
 }
 
+// ── Main page ──────────────────────────────────────────────────────────────────
+
 export default function GroupsPage() {
   const theme = useTheme();
   const colors = theme.colors;
+  const navigate = useNavigate();
 
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
@@ -210,6 +217,7 @@ export default function GroupsPage() {
             {groups.map((group) => (
               <Box
                 key={group.id}
+                onClick={() => navigate(`/groups/${group.id}`)}
                 sx={{
                   border: `1px solid ${colors.border.muted}`,
                   borderRadius: '8px',
@@ -218,27 +226,24 @@ export default function GroupsPage() {
                   display: 'flex',
                   alignItems: 'center',
                   gap: 1,
+                  cursor: 'pointer',
+                  transition: 'border-color 0.15s, background-color 0.15s',
+                  '&:hover': {
+                    borderColor: colors.border.default,
+                    backgroundColor: colors.canvas.subtle,
+                  },
                 }}
               >
                 <GroupsOutlinedIcon sx={{ fontSize: 16, color: colors.fg.subtle, flexShrink: 0 }} />
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25 }}>
                     <Typography
-                      sx={{
-                        fontSize: '0.875rem',
-                        fontWeight: 600,
-                        color: colors.accent.fg,
-                      }}
+                      sx={{ fontSize: '0.875rem', fontWeight: 600, color: colors.accent.fg }}
                     >
                       {group.name}
                     </Typography>
                     <Typography
-                      sx={{
-                        fontSize: '0.6875rem',
-                        color: colors.fg.subtle,
-                        ml: 'auto',
-                        flexShrink: 0,
-                      }}
+                      sx={{ fontSize: '0.6875rem', color: colors.fg.subtle, ml: 'auto', flexShrink: 0 }}
                     >
                       Created {timeAgo(group.created_at)}
                     </Typography>
@@ -257,6 +262,7 @@ export default function GroupsPage() {
                     </Typography>
                   )}
                 </Box>
+                <ChevronRightIcon sx={{ fontSize: 16, color: colors.fg.subtle, flexShrink: 0 }} />
               </Box>
             ))}
           </Box>

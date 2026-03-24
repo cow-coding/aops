@@ -15,6 +15,7 @@ import AgentCostTab from './pages/agent/AgentCostTab';
 import ChainCreatePage from './pages/ChainCreatePage';
 import ChainDetailPage from './pages/ChainDetailPage';
 import GroupsPage from './pages/GroupsPage';
+import GroupDetailPage from './pages/GroupDetailPage';
 import ProfilePage from './pages/ProfilePage';
 import TracesPage from './pages/TracesPage';
 import CostPage from './pages/CostPage';
@@ -77,6 +78,7 @@ export default function App() {
         <Route path="/agents/:id/chains/:chainId/:tab" element={<ChainDetailPage />} />
 
         <Route path="/groups" element={<GroupsPage />} />
+        <Route path="/groups/:groupId" element={<GroupDetailPage />} />
         <Route path="/traces" element={<TracesPage />} />
         <Route path="/cost" element={<CostPage />} />
         <Route path="/monitoring" element={<MonitoringPage />} />
