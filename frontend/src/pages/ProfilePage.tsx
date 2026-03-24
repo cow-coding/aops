@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Box, Chip, CircularProgress, Divider, TextField, Typography } from '@mui/material';
+import { Box, Button, Chip, CircularProgress, Divider, IconButton, TextField, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import type { User } from '../types/auth';
 import { authApi } from '../services/authApi';
 import { formatDateTime } from '../utils/date';
@@ -41,9 +42,15 @@ export default function ProfilePage() {
     }
   }
 
+  function handleNameCancel() {
+    setEditingName(false);
+    setNameValue(user?.name ?? '');
+    setNameError(null);
+  }
+
   function handleNameKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter') handleNameSave();
-    if (e.key === 'Escape') { setEditingName(false); setNameValue(user?.name ?? ''); }
+    if (e.key === 'Enter' && e.ctrlKey) handleNameSave();
+    if (e.key === 'Escape') handleNameCancel();
   }
 
   if (loading) {
@@ -85,36 +92,55 @@ export default function ProfilePage() {
       <Box sx={{ mb: 2.5 }}>
         <Typography variant="body2" sx={{ color: colors.fg.subtle, mb: 0.5 }}>Name</Typography>
         {editingName ? (
-          <TextField
-            size="small"
-            value={nameValue}
-            onChange={(e) => setNameValue(e.target.value)}
-            onBlur={handleNameSave}
-            onKeyDown={handleNameKeyDown}
-            autoFocus
-            disabled={nameSaving}
-            error={!!nameError}
-            helperText={nameError}
-            sx={{ width: 280 }}
-          />
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            <TextField
+              size="small"
+              value={nameValue}
+              onChange={(e) => setNameValue(e.target.value)}
+              onKeyDown={handleNameKeyDown}
+              autoFocus
+              disabled={nameSaving}
+              error={!!nameError}
+              helperText={nameError}
+              sx={{ width: 280 }}
+            />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Button size="small" variant="contained" onClick={handleNameSave} disabled={nameSaving}>
+                {nameSaving ? <CircularProgress size={12} color="inherit" /> : 'Save'}
+              </Button>
+              <Button size="small" variant="outlined" onClick={handleNameCancel} disabled={nameSaving}>
+                Cancel
+              </Button>
+              <Typography variant="caption" sx={{ color: colors.fg.subtle, ml: 'auto' }}>
+                Ctrl+Enter to save
+              </Typography>
+            </Box>
+          </Box>
         ) : (
-          <Typography
-            onClick={() => { setNameValue(user.name); setNameError(null); setEditingName(true); }}
-            sx={{
-              fontSize: '0.9375rem',
-              color: user.name ? colors.fg.default : colors.fg.subtle,
-              fontStyle: user.name ? 'normal' : 'italic',
-              cursor: 'pointer',
-              px: 1,
-              py: 0.5,
-              mx: -1,
-              borderRadius: '4px',
-              display: 'inline-block',
-              '&:hover': { backgroundColor: colors.canvas.elevated },
-            }}
-          >
-            {user.name || 'No name — click to add'}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mx: -1 }}>
+            <Typography
+              sx={{
+                fontSize: '0.9375rem',
+                color: user.name ? colors.fg.default : colors.fg.subtle,
+                fontStyle: user.name ? 'normal' : 'italic',
+                px: 1,
+                py: 0.5,
+              }}
+            >
+              {user.name || 'No name'}
+            </Typography>
+            <IconButton
+              size="small"
+              onClick={() => { setNameValue(user.name); setNameError(null); setEditingName(true); }}
+              sx={{
+                p: 0.375,
+                color: colors.fg.subtle,
+                '&:hover': { color: colors.fg.muted, backgroundColor: colors.canvas.elevated },
+              }}
+            >
+              <EditOutlinedIcon sx={{ fontSize: 14 }} />
+            </IconButton>
+          </Box>
         )}
       </Box>
 
