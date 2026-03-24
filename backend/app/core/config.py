@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     # Defaults to empty string; the route handler falls back to request.base_url.
     SERVER_URL: str = ""
 
+    # Health check SSRF guard — set True in local dev to allow localhost/private IPs
+    ALLOW_PRIVATE_HEALTH_URLS: bool = False
+
     # JWT settings
     SECRET_KEY: str = "change-me-in-production-use-a-long-random-string"
     ALGORITHM: str = "HS256"

@@ -28,8 +28,10 @@ class AgentHealthRow(BaseModel):
     avg_latency_ms: float | None
     p95_latency_ms: float | None
     null_rate: float
-    status: Literal["healthy", "warning", "critical", "dormant"]
+    status: Literal["healthy", "warning", "critical", "dormant", "down", "degraded"]
     last_run_at: datetime | None
+    availability: Literal["up", "down", "degraded"] | None = None
+    availability_latency_ms: int | None = None
 
 
 class SlowChainRow(BaseModel):

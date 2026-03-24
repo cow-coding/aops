@@ -20,6 +20,7 @@ from app.core.config import settings
 from app.core.database import async_session_factory
 from app.core.limiter import limiter
 from app.middleware.logging import RequestLoggingMiddleware
+from app.services.health_scheduler import health_scheduler_loop
 from app.services.model_pricing import sync_model_pricing
 
 logger = logging.getLogger(__name__)
@@ -47,6 +48,7 @@ async def _pricing_sync_loop() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     asyncio.create_task(_pricing_sync_loop())
+    asyncio.create_task(health_scheduler_loop())
     yield
 
 

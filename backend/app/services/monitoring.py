@@ -1,4 +1,5 @@
 import uuid
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
@@ -8,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.agent import Agent
 from app.models.agent_run import AgentRun, ChainCallLog
 from app.models.chain import Chain
+from app.models.health_check import AgentHealthConfig, HealthCheckLog
 from app.services import agent as agent_service
 
 
@@ -22,14 +24,74 @@ def _pct_change(curr: float | None, prev: float | None) -> float | None:
     return round((curr - prev) / prev * 100, 1)
 
 
+# All status values that count as a health check failure
+_FAILURE_STATUSES = frozenset({"down", "timeout"})
+
+
+def _compute_availability(
+    logs: list,
+    config: AgentHealthConfig | None,
+) -> tuple[Literal["up", "down", "degraded"] | None, int | None]:
+    """Return (availability_status, avg_latency_ms) based on recent health check logs.
+
+    Returns (None, None) if no health config exists or no logs available.
+    """
+    if config is None or not logs:
+        return None, None
+
+    threshold = config.consecutive_failures_threshold
+
+    # Sort descending by checked_at (most recent first)
+    sorted_logs = sorted(logs, key=lambda l: l.checked_at, reverse=True)
+
+    # Consecutive failures from the most recent check
+    consecutive = 0
+    for log in sorted_logs:
+        if log.status in _FAILURE_STATUSES:
+            consecutive += 1
+        else:
+            break
+
+    if consecutive >= threshold:
+        return "down", None
+
+    # Failure rate across all recent logs
+    total = len(sorted_logs)
+    failures = sum(1 for l in sorted_logs if l.status in _FAILURE_STATUSES)
+    failure_rate = failures / total
+
+    # Avg latency of recent successful checks
+    latencies = [l.latency_ms for l in sorted_logs if l.latency_ms is not None]
+    avg_latency = int(sum(latencies) / len(latencies)) if latencies else None
+
+    # Latency spike: compare avg of first half (recent) vs second half (older)
+    latency_spike = False
+    if len(latencies) >= 4:
+        mid = len(latencies) // 2
+        recent_avg = sum(latencies[:mid]) / mid
+        older_avg = sum(latencies[mid:]) / (len(latencies) - mid)
+        if older_avg > 0 and recent_avg >= older_avg * 2:
+            latency_spike = True
+
+    if failure_rate >= 0.3 or latency_spike:
+        return "degraded", avg_latency
+
+    return "up", avg_latency
+
+
 def _agent_status(
     error_rate: float,
     latency_spike: bool,
     total_runs: int,
     last_run_at: datetime | None,
     range_hours: int,
-) -> Literal["healthy", "warning", "critical", "dormant"]:
-    # Priority: critical > warning > dormant > healthy
+    availability: Literal["up", "down", "degraded"] | None = None,
+) -> Literal["healthy", "warning", "critical", "dormant", "down", "degraded"]:
+    # Priority: down > degraded > critical > warning > dormant > healthy
+    if availability == "down":
+        return "down"
+    if availability == "degraded":
+        return "degraded"
     if error_rate > 0.2:
         return "critical"
     if error_rate > 0.05 or latency_spike:
@@ -263,6 +325,39 @@ async def get_monitoring_summary(
         )
     ).all()
 
+    # --- Health check data: configs + recent logs per agent ---
+    health_configs_result = await db.execute(
+        select(AgentHealthConfig).where(AgentHealthConfig.agent_id.in_(agent_ids))
+    )
+    # Normalize keys to str to avoid UUID type mismatch between ORM and subquery rows
+    health_config_map: dict[str, AgentHealthConfig] = {
+        str(c.agent_id): c for c in health_configs_result.scalars().all()
+    }
+
+    # Fetch last 20 health check logs per agent using ROW_NUMBER window function
+    rn_expr = func.row_number().over(
+        partition_by=HealthCheckLog.agent_id,
+        order_by=HealthCheckLog.checked_at.desc(),
+    ).label("rn")
+    ranked_sq = (
+        select(
+            HealthCheckLog.agent_id,
+            HealthCheckLog.status,
+            HealthCheckLog.latency_ms,
+            HealthCheckLog.checked_at,
+            rn_expr,
+        )
+        .where(HealthCheckLog.agent_id.in_(agent_ids))
+        .subquery()
+    )
+    recent_logs_result = await db.execute(
+        select(ranked_sq).where(ranked_sq.c.rn <= 20)
+    )
+    # Normalize keys to str to ensure consistent lookup regardless of UUID type returned
+    agent_recent_logs: dict[str, list] = defaultdict(list)
+    for log_row in recent_logs_result.all():
+        agent_recent_logs[str(log_row.agent_id)].append(log_row)
+
     agent_health = []
     for row in agent_rows:
         total = row.total_runs  # coalesced to 0
@@ -277,6 +372,11 @@ async def get_monitoring_summary(
         )
         trend_pct = _pct_change(curr_agent_avg, prev_agent_avg)
         latency_spike = trend_pct is not None and trend_pct >= 100
+
+        availability, availability_latency_ms = _compute_availability(
+            logs=agent_recent_logs.get(str(row.agent_id), []),
+            config=health_config_map.get(str(row.agent_id)),
+        )
 
         agent_health.append(
             {
@@ -299,8 +399,11 @@ async def get_monitoring_summary(
                     total_runs=total,
                     last_run_at=row.last_run_at,
                     range_hours=hours,
+                    availability=availability,
                 ),
                 "last_run_at": row.last_run_at,
+                "availability": availability,
+                "availability_latency_ms": availability_latency_ms,
             }
         )
 
